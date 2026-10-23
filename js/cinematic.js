@@ -194,5 +194,46 @@
     return { stop: finish };
   }
 
-  window.Cinematic = { play, DOMAINS, CHARS, figureSVG };
+  // ───────── 3D-Videos (in Blender gerendert, siehe Ordner blender/) ─────────
+  // Zeiten in Sekunden: wann welche Schrift über dem Video erscheint
+  const VIDEOS = {
+    'unendliche-leere': { src: 'video/void.mp4', cues: [['s3', 2.6], ['s4', 4.6], ['s5', 5.8], ['s7', 10.3]] },
+  };
+
+  function playVideo(container, o, v, onDone) {
+    const D = DOMAINS[o.winnerDomain];
+    const W = CHARS[D.char];
+    container.innerHTML = `<div class="cine vid" style="--wa:${W.aura}">
+      <video class="cine-video" src="${v.src}" muted playsinline preload="auto"></video>
+      <div class="ryoiki"><b>領域展開</b><span>DOMAIN EXPANSION</span></div>
+      <div class="dtitle"><b>${D.kanji}</b><span>${o.domainName}</span><small>${D.line}</small></div>
+      <div class="victory"><b>${o.meWon ? 'SIEG!' : 'NIEDERLAGE'}</b><span>${o.winnerName} gewinnt den Domain Clash</span></div>
+      <div class="vid-names"><span>${o.winnerName}</span><span>${o.loserName}</span></div>
+      <button class="cine-skip" type="button">Überspringen ⏭</button>
+    </div>`;
+    const cine = container.querySelector('.cine');
+    const video = cine.querySelector('video');
+    let finished = false;
+    const finish = () => { if (finished) return; finished = true; video.pause(); onDone && onDone(); };
+    let shown = '';
+    video.addEventListener('timeupdate', () => {
+      let cls = '';
+      v.cues.forEach(([c, t]) => { if (video.currentTime >= t) cls = c; });
+      if (cls !== shown) { cine.classList.remove(shown || 'x'); if (cls) cine.classList.add(cls); shown = cls; }
+    });
+    video.addEventListener('ended', () => setTimeout(finish, 900));
+    video.addEventListener('error', () => { if (!finished) { finished = true; play(container, o, onDone); } });
+    const p = video.play();
+    if (p && p.catch) p.catch(() => { if (!finished) { finished = true; play(container, o, onDone); } });
+    cine.querySelector('.cine-skip').onclick = finish;
+    return { stop: finish };
+  }
+
+  // Video, falls vorhanden – sonst die gezeichnete Animation
+  function playBest(container, o, onDone) {
+    const v = VIDEOS[o.winnerDomain];
+    return v ? playVideo(container, o, v, onDone) : play(container, o, onDone);
+  }
+
+  window.Cinematic = { play: playBest, playDrawn: play, DOMAINS, CHARS, figureSVG, VIDEOS };
 })();

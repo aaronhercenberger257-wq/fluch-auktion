@@ -264,6 +264,16 @@
 .cine.s7 .fig-w .aura { opacity: 1; inset: -30% -70%; }
 .cine.s7 .fig-l { opacity: 0; transition: opacity .4s; }
 
+/* ── 3D-Video-Variante ── */
+.cine.vid .cine-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.cine.vid .ryoiki, .cine.vid .dtitle { background: radial-gradient(ellipse at center, rgba(0, 0, 0, .35), transparent 70%); }
+.cine.vid.s5 .dtitle { opacity: 0; transition: opacity .5s; }
+.cine.vid .vid-names { position: absolute; left: 0; right: 0; bottom: 4vh; display: flex; justify-content: space-between; padding: 0 6vw; z-index: 22;
+  font-weight: 800; font-size: 14px; opacity: 0; transition: opacity .4s; }
+.cine.vid .vid-names span { background: rgba(0, 0, 0, .6); padding: 3px 10px; border-radius: 999px; }
+.cine.vid.s5 .vid-names { opacity: 1; }
+.cine.vid.s7 .vid-names { opacity: 0; }
+
 @media (max-width: 700px) {
   .cine .fig { height: 44%; }
   .cine .fig-w { left: 8%; } .cine .fig-l { right: 8%; }
