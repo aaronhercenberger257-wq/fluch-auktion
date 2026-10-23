@@ -1,0 +1,273 @@
+/* ═════════ Anime-Siegesanimation (Domain Clash) ═════════ */
+.cine { position: fixed; inset: 0; z-index: 45; background: #000; overflow: hidden; color: #fff; font-family: var(--body); }
+.cine .cam { position: absolute; inset: 0; transform-origin: 50% 55%; transition: transform 1s cubic-bezier(.7, 0, .2, 1); will-change: transform; }
+.cine .world { position: absolute; inset: 0; }
+.cine.cut .cam { animation: whip .38s ease-out; }
+@keyframes whip { 0% { filter: blur(10px) brightness(1.6); } 100% { filter: none; } }
+
+/* Kinobalken */
+.cine .bars i { position: absolute; left: 0; right: 0; height: 9vh; background: #000; z-index: 30; transition: height .6s; }
+.cine .bars i:first-child { top: 0; } .cine .bars i:last-child { bottom: 0; }
+.cine.s3 .bars i, .cine.s4 .bars i { height: 13vh; }
+
+/* Speedlines */
+.cine .speedlines { position: absolute; inset: -20%; opacity: 0; pointer-events: none; z-index: 8;
+  background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, .5) 0 .4deg, transparent .4deg 6deg);
+  -webkit-mask: radial-gradient(circle, transparent 28%, #000 62%); mask: radial-gradient(circle, transparent 28%, #000 62%); }
+.cine.s2 .speedlines, .cine.s6 .speedlines { opacity: .55; animation: spin 6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Umgebung: Clash ── */
+.cine .env { position: absolute; inset: 0; }
+.cine .env-clash .half { position: absolute; top: 0; bottom: 0; width: 60%; filter: blur(2px); }
+.cine .env-clash .hl { left: -5%; background: radial-gradient(circle at 30% 60%, var(--wa), transparent 65%), linear-gradient(90deg, #000, color-mix(in srgb, var(--wa) 30%, #000)); animation: pushL 1.2s ease-in-out infinite alternate; }
+.cine .env-clash .hr { right: -5%; background: radial-gradient(circle at 70% 60%, var(--la), transparent 65%), linear-gradient(270deg, #000, color-mix(in srgb, var(--la) 30%, #000)); animation: pushR 1.2s ease-in-out infinite alternate; }
+@keyframes pushL { to { transform: translateX(4%); } } @keyframes pushR { to { transform: translateX(-4%); } }
+.cine .clash-core { position: absolute; left: 50%; top: 55%; width: 18vmin; height: 70vh; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(ellipse, #fff, rgba(255, 255, 255, .4) 30%, transparent 70%); animation: core .18s steps(2) infinite; }
+@keyframes core { 50% { transform: translate(-50%, -50%) scaleX(1.4); opacity: .7; } }
+
+/* ── Umgebung: Domain (öffnet sich wie ein Kreis) ── */
+.cine .env-domain { clip-path: circle(0% at 26% 62%); transition: clip-path 1.3s cubic-bezier(.6, 0, .2, 1); }
+.cine.s5 .env-domain, .cine.s6 .env-domain, .cine.s7 .env-domain { clip-path: circle(150% at 26% 62%); }
+.cine.s5 .env-clash, .cine.s6 .env-clash, .cine.s7 .env-clash { opacity: 0; transition: opacity 1s .6s; }
+.cine .w { position: absolute; inset: 0; overflow: hidden; }
+
+/* Unlimited Void */
+.w-void { background: radial-gradient(circle at 50% 50%, #1e3a8a 0%, #0b1026 45%, #000 80%); }
+.w-void .galaxy { position: absolute; left: 50%; top: 45%; width: 90vmax; height: 90vmax; margin: -45vmax 0 0 -45vmax; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent, rgba(147, 197, 253, .35), transparent 30%, rgba(196, 181, 253, .3), transparent 60%, rgba(56, 189, 248, .3), transparent);
+  -webkit-mask: radial-gradient(circle, #000 10%, transparent 60%); mask: radial-gradient(circle, #000 10%, transparent 60%); animation: spin 18s linear infinite; }
+.w-void .galaxy.g2 { animation-duration: 30s; animation-direction: reverse; opacity: .6; transform: scale(.6); }
+.w-void .star { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px #bfdbfe; animation: twinkle 1.8s ease-in-out infinite; }
+.w-void .void-ring { position: absolute; left: 50%; top: 45%; width: 46vmin; height: 46vmin; margin: -23vmin 0 0 -23vmin; border-radius: 50%;
+  border: 2px solid rgba(191, 219, 254, .6); box-shadow: 0 0 60px rgba(96, 165, 250, .5), inset 0 0 60px rgba(96, 165, 250, .5); animation: breatheRing 3s ease-in-out infinite; }
+@keyframes breatheRing { 50% { transform: scale(1.15); opacity: .6; } }
+
+/* Malevolent Shrine */
+.w-shrine { background: linear-gradient(180deg, #450a0a 0%, #1a0505 55%, #050101 100%); }
+.w-shrine .blood-moon { position: absolute; right: 14%; top: 10%; width: 16vmin; height: 16vmin; border-radius: 50%; background: radial-gradient(circle at 40% 40%, #fca5a5, #b91c1c 60%, #450a0a); box-shadow: 0 0 80px #dc2626; }
+.w-shrine .shrine { position: absolute; left: 50%; bottom: 6%; width: 80vmin; transform: translateX(-50%); filter: drop-shadow(0 0 30px #7f1d1d); }
+.w-shrine .red-mist { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 100%, rgba(220, 38, 38, .35), transparent 60%); animation: twinkle 2.4s ease-in-out infinite; }
+
+/* Coffin of the Iron Mountain */
+.w-volcano { background: linear-gradient(180deg, #431407, #1c0a02 60%); }
+.w-volcano .volc { position: absolute; left: 50%; bottom: 0; width: 90vmin; transform: translateX(-50%); }
+.w-volcano .lava { position: absolute; left: 0; right: 0; bottom: 0; height: 14%; background: linear-gradient(0deg, #f97316, #c2410c 60%, transparent); animation: twinkle 1s infinite; }
+.w-volcano .ember { position: absolute; bottom: 0; width: 6px; height: 6px; border-radius: 50%; background: #fdba74; box-shadow: 0 0 10px #f97316; animation: emberUp 2.6s linear infinite; }
+@keyframes emberUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-90vh) translateX(30px); opacity: 0; } }
+
+/* Chimera Shadow Garden */
+.w-shadow { background: linear-gradient(180deg, #0f172a, #020617 70%); }
+.w-shadow .shadow-sea { position: absolute; left: 0; right: 0; bottom: 0; height: 36%; background: #000;
+  box-shadow: 0 -20px 60px #000; animation: seaBob 2.4s ease-in-out infinite; }
+@keyframes seaBob { 50% { transform: translateY(-8px); } }
+.w-shadow .tendril { position: absolute; bottom: 20%; width: 18px; height: 120px; border-radius: 50% 50% 0 0; background: #000; animation: shadowUp 2.6s ease-in-out infinite; }
+
+/* Self-Embodiment of Perfection */
+.w-hands { background: radial-gradient(circle at 50% 50%, #134e4a, #042f2e 50%, #000); }
+.w-hands .hand-ring { position: absolute; left: 50%; top: 45%; width: 0; height: 0; animation: spin 14s linear infinite; }
+.w-hands .bighand { position: absolute; left: -22px; top: -60px; width: 44px; height: 120px; border-radius: 22px 22px 10px 10px; background: #5eead4; opacity: .45;
+  box-shadow: 0 0 20px #2dd4bf; }
+
+/* Deadly Sentencing */
+.w-court { background: linear-gradient(180deg, #1c1608, #0a0802); }
+.w-court .pillar { position: absolute; top: 0; bottom: 0; width: 7%; background: linear-gradient(90deg, #3f3410, #a1873a 50%, #3f3410); opacity: .55; }
+.w-court .scales { position: absolute; left: 50%; top: 8%; width: 26vmin; transform: translateX(-50%); filter: drop-shadow(0 0 20px #eab308); }
+
+/* Idle Death Gamble */
+.w-gamble { background: radial-gradient(circle at 50% 40%, #831843, #2e0518 60%, #000); }
+.w-gamble .bulb { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #fde68a; box-shadow: 0 0 14px #f472b6; animation: twinkle .5s steps(2) infinite; }
+.w-gamble .neon { position: absolute; left: 50%; top: 12%; transform: translateX(-50%); font-family: var(--display); font-size: 6vmin; color: #fbcfe8;
+  text-shadow: 0 0 10px #ec4899, 0 0 30px #ec4899; white-space: nowrap; animation: twinkle 1s steps(2) infinite; }
+
+/* Authentic Mutual Love */
+.w-swords { background: linear-gradient(180deg, #4a044e, #1a0610 70%); }
+.w-swords .pink-sky { position: absolute; inset: 0; background: radial-gradient(circle at 50% 20%, rgba(244, 114, 182, .5), transparent 60%); }
+.w-swords .sword { position: absolute; bottom: 6%; width: 3px; background: linear-gradient(#fff, #f9a8d4); transform-origin: bottom; box-shadow: 0 0 6px #f472b6; }
+
+/* Horizon of the Captivating Skandha */
+.w-beach { background: linear-gradient(180deg, #38bdf8 0%, #7dd3fc 45%, #fde68a 46%, #fcd34d 100%); }
+.w-beach .sun { position: absolute; right: 16%; top: 10%; width: 14vmin; height: 14vmin; border-radius: 50%; background: #fef08a; box-shadow: 0 0 60px #fde047; }
+.w-beach .sea { position: absolute; left: 0; right: 0; top: 46%; height: 18%; background: linear-gradient(180deg, #0ea5e9, #22d3ee); animation: seaBob 2s ease-in-out infinite; }
+.w-beach .fish { position: absolute; width: 22px; height: 10px; border-radius: 50%; background: #0e7490; animation: fishSwim 3s linear infinite; }
+@keyframes fishSwim { from { transform: translateX(-40px); } to { transform: translateX(40px); } }
+
+/* Time Cell Moon Palace */
+.w-frames { background: radial-gradient(circle at 50% 30%, #312e81, #0d0d1a 70%); }
+.w-frames .strip { position: absolute; left: -20%; width: 140%; height: 12%; display: flex; gap: 10px; animation: stripMove 3s linear infinite; }
+.w-frames .strip i { flex: 0 0 9%; border: 2px solid rgba(199, 210, 254, .6); background: rgba(165, 180, 252, .08); }
+@keyframes stripMove { to { transform: translateX(10%); } }
+
+/* ── Figuren ── */
+.cine .fig { position: absolute; bottom: 10%; height: 56%; aspect-ratio: 120 / 250; z-index: 5; transition: transform .8s cubic-bezier(.7, 0, .2, 1), left .8s; }
+.cine .fig-w { left: 16%; }
+.cine .fig-l { right: 16%; }
+.cine .fig-l .figure { transform: scaleX(-1); }
+.cine .figure { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 1px #000); }
+.cine .fig .aura { position: absolute; inset: -14% -40%; border-radius: 50%; filter: blur(18px); opacity: .55; animation: auraPulse 1s ease-in-out infinite; }
+.cine .fig-w .aura { background: radial-gradient(ellipse, var(--wa), transparent 65%); }
+.cine .fig-l .aura { background: radial-gradient(ellipse, var(--la), transparent 65%); }
+@keyframes auraPulse { 50% { transform: scale(1.08); opacity: .8; } }
+.cine .fig .tag { position: absolute; left: 50%; bottom: -26px; transform: translateX(-50%); font-weight: 800; font-size: 13px; white-space: nowrap;
+  background: rgba(0, 0, 0, .6); padding: 2px 8px; border-radius: 999px; }
+.cine .figure .arm-r { transform-origin: 80px 66px; transition: transform .5s; }
+.cine .figure .head { transform-origin: 60px 58px; }
+.cine .smoke { animation: smoke 1.6s ease-out infinite; } .cine .smoke.s2 { animation-delay: -.8s; }
+@keyframes smoke { from { transform: translateY(0); opacity: .8; } to { transform: translateY(-20px) scale(1.6); opacity: 0; } }
+/* Fingerzeichen-Pose */
+.cine.s3 .fig-w .arm-r, .cine.s4 .fig-w .arm-r, .cine.s5 .fig-w .arm-r { transform: rotate(-120deg); }
+.cine.s7 .fig-w .arm-r { transform: rotate(-160deg); }
+
+/* ── Kamera pro Einstellung ── */
+.cine.s1 .cam { transform: scale(1.08); }
+.cine.s2 .cam { transform: scale(2.1) translate(24%, 8%); }
+.cine.s3 .cam { transform: scale(2.4) translate(25%, 12%); filter: brightness(.45); }
+.cine.s4 .cam { transform: scale(1.6) translate(20%, 6%); filter: brightness(.35); }
+.cine.s5 .cam { transform: scale(1.12); transition-duration: 2.4s; }
+.cine.s6 .cam { transform: scale(1.9) translate(-23%, 6%); }
+.cine.s7 .cam { transform: scale(1.55) translate(18%, 5%); }
+
+/* ── Cut-in: Auge + Fingerzeichen ── */
+.cine .cutin { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+.cine .cutin > div { position: absolute; left: 0; right: 0; height: 34%; overflow: hidden; background: #000; border-top: 3px solid #fff; border-bottom: 3px solid #fff;
+  transform: translateX(-110%); transition: transform .45s cubic-bezier(.2, .9, .3, 1); }
+.cine .cutin-eye { top: 14%; } .cine .cutin-hand { top: 52%; transform: translateX(110%) !important; }
+.cine.s3 .cutin-eye { transform: translateX(0); } .cine.s3 .cutin-hand { transform: translateX(0) !important; transition-delay: .25s; }
+.cine .eye-shape { position: absolute; left: 50%; top: 50%; width: 70vmin; height: 18vmin; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(circle, #000 9%, var(--e) 10%, color-mix(in srgb, var(--e) 50%, #fff) 26%, #fff 27%, #e5e7eb 60%);
+  box-shadow: 0 0 40px var(--e); animation: eyeOpen .6s ease-out both; }
+@keyframes eyeOpen { from { transform: translate(-50%, -50%) scaleY(.05); } }
+.cine .cutin-hand svg { position: absolute; left: 50%; top: 50%; height: 140%; transform: translate(-50%, -50%) rotate(-8deg); }
+
+/* ── Schriften ── */
+.cine .ryoiki, .cine .dtitle, .cine .victory { position: absolute; inset: 0; z-index: 25; display: grid; place-content: center; text-align: center; pointer-events: none; opacity: 0; }
+.cine .ryoiki b { font-family: var(--jp); font-size: 15vmin; font-weight: 900; color: #fff; text-shadow: 0 0 20px #000, 0 0 40px var(--wa); letter-spacing: .1em; }
+.cine .ryoiki span { font-family: var(--display); font-size: 6vmin; letter-spacing: .3em; }
+.cine.s3 .ryoiki { opacity: 1; animation: slamIn .5s .55s cubic-bezier(.2, 1.5, .4, 1) both; }
+.cine .dtitle b { font-family: var(--jp); font-weight: 900; font-size: 12vmin; writing-mode: vertical-rl; margin: 0 auto; color: #fff; text-shadow: 0 0 30px var(--wa); }
+.cine .dtitle span { font-family: var(--display); font-size: 8vmin; margin-top: 1vh; color: #fff; text-shadow: 0 0 20px var(--wa); }
+.cine .dtitle small { font-size: 2.6vmin; opacity: .85; margin-top: .5vh; }
+.cine.s4 .dtitle { opacity: 1; animation: slamIn .6s cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes slamIn { from { opacity: 0; transform: scale(2.2); filter: blur(8px); } }
+.cine .victory b { font-family: var(--display); font-size: 18vmin; line-height: .9; background: linear-gradient(180deg, #fff, var(--wa)); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 20px var(--wa)); }
+.cine .victory span { font-weight: 800; font-size: 3.4vmin; }
+.cine.s7 .victory { opacity: 1; animation: slamIn .6s .3s cubic-bezier(.2, 1.4, .4, 1) both; place-content: end center; padding-bottom: 16vh; }
+
+/* Weißer Blitz bei jedem Schnitt in die Domain / beim Finisher */
+.cine .flashwhite { position: absolute; inset: 0; z-index: 28; background: #fff; opacity: 0; pointer-events: none; }
+.cine.s4 .flashwhite { animation: flashOnce .5s ease-out; }
+.cine.s6 .flashwhite { animation: flashOnce .4s 1.9s ease-out forwards; }
+
+.cine-skip { position: absolute; right: 16px; top: 14px; z-index: 40; background: rgba(0, 0, 0, .6); color: #fff; border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 999px; padding: 8px 14px; font: inherit; font-weight: 700; cursor: pointer; }
+
+/* ═════ Finisher ═════ */
+.cine .fx { position: absolute; inset: -40% -60%; pointer-events: none; opacity: 0; z-index: 6; }
+.cine.s6 .fx { opacity: 1; }
+.cine .fx-word { position: absolute; left: 50%; top: -18%; transform: translateX(-50%) scaleX(-1); font-family: var(--jp); font-weight: 900; font-size: 5vmin; white-space: nowrap;
+  color: #fff; text-shadow: 0 0 14px #000, 0 0 20px var(--wa); opacity: 0; z-index: 7; }
+.cine.s6 .fx-word { animation: slamIn .5s 1.2s cubic-bezier(.2, 1.4, .4, 1) both; opacity: 1; }
+.cine .fig-l .fx-word { transform: translateX(-50%); }
+
+/* Gemeinsame K.-o.-Bewegungen des Verlierers */
+@keyframes koFall { to { transform: translateY(18%) rotate(78deg); opacity: .25; } }
+@keyframes frozen { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-1px, 1px); } 75% { transform: translate(1px, -1px); } }
+
+/* Unlimited Void: Informationsflut, Lähmung, leuchtender Punkt hinter dem Gegner, Kopf fliegt (ohne Blut) */
+.fx-void .info { position: absolute; left: 50%; top: 35%; font-family: var(--display); font-size: 18px; color: #bfdbfe; text-shadow: 0 0 8px #60a5fa;
+  animation: infoIn 1.4s ease-in both; }
+@keyframes infoIn { from { transform: rotate(var(--a)) translateX(240px) rotate(calc(-1 * var(--a))); opacity: 0; } 30% { opacity: 1; } to { transform: rotate(var(--a)) translateX(0) rotate(calc(-1 * var(--a))); opacity: 0; } }
+.fx-void .void-point { position: absolute; left: 50%; top: 30%; width: 26px; height: 26px; margin: -13px; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 30px 12px #93c5fd, 0 0 80px 30px #3b82f6; transform: scale(0); animation: voidPt 1.2s .9s cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes voidPt { to { transform: scale(1); } }
+.cine.fin-void.s6 .fig-l .figure { animation: frozen .08s steps(2) infinite; filter: grayscale(.7) brightness(.8) drop-shadow(0 0 10px #93c5fd); }
+.cine.fin-void.s6 .fig-l .head { animation: headPop 1s 2.1s cubic-bezier(.3, .2, .2, 1) forwards; }
+@keyframes headPop { 30% { transform: translate(-6px, -40px) rotate(-30deg); } to { transform: translate(-30px, -140px) rotate(-200deg); opacity: 0; } }
+.cine.fin-void.s6 .fig-w { left: 50%; transition-delay: 1.7s; transition-duration: .25s; }
+
+/* Malevolent Shrine: Schnitt-Gewitter, Gegner zerfällt in Stücke (ohne Blut) */
+.fx-shrine .cut { position: absolute; left: 30%; width: 40%; height: 3px; background: linear-gradient(90deg, transparent, #fff, #fecaca, transparent);
+  box-shadow: 0 0 10px #ef4444; transform: rotate(var(--r)) scaleX(0); animation: cut .28s ease-out both; }
+@keyframes cut { 50% { transform: rotate(var(--r)) scaleX(1.4); opacity: 1; } to { transform: rotate(var(--r)) scaleX(1.6); opacity: 0; } }
+.cine.fin-shrine.s6 .fig-l .figure { animation: shredded 2.4s ease-in both; }
+@keyframes shredded {
+  0%, 60% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); opacity: 1; filter: brightness(1.6) drop-shadow(0 0 6px #ef4444); }
+  64% { clip-path: polygon(0 0, 100% 0, 100% 34%, 0 46%); }
+  70% { clip-path: polygon(0 54%, 100% 40%, 100% 100%, 0 100%); }
+  100% { clip-path: polygon(0 60%, 100% 50%, 100% 100%, 0 100%); transform: scaleX(-1) translateY(30%); opacity: 0; } }
+
+/* Coffin: Lava-Eruptionen, Gegner verglüht zu Asche */
+.fx-volcano .eruption { position: absolute; bottom: 30%; width: 40px; height: 0; border-radius: 20px 20px 0 0; background: linear-gradient(0deg, #f97316, #fde68a);
+  box-shadow: 0 0 30px #f97316; animation: erupt .9s ease-out both; }
+@keyframes erupt { to { height: 70%; } }
+.cine.fin-volcano.s6 .fig-l .figure { animation: burnAway 2.6s ease-in both; }
+@keyframes burnAway { 40% { filter: brightness(2) sepia(1) hue-rotate(-30deg) saturate(4); } to { filter: brightness(3) sepia(1) saturate(5); opacity: 0; transform: scaleX(-1) translateY(-20%) scale(.9); } }
+
+/* Chimera Shadow Garden: Schatten ziehen den Gegner nach unten */
+.fx-shadow .grab { position: absolute; bottom: 28%; width: 30px; height: 0; border-radius: 15px 15px 0 0; background: #000; box-shadow: 0 0 20px #000; animation: erupt .8s ease-out both; }
+.cine.fin-shadow.s6 .fig-l .figure { animation: sink 2.4s .6s ease-in both; }
+@keyframes sink { to { transform: scaleX(-1) translateY(70%); filter: brightness(0); } }
+
+/* Self-Embodiment: Hände greifen, die Seele wird verformt */
+.fx-hands .touch { position: absolute; left: 50%; top: 45%; width: 30px; height: 70px; margin: -35px -15px; border-radius: 15px; background: #5eead4; box-shadow: 0 0 20px #2dd4bf;
+  transform: rotate(var(--r)) translateY(-260px); animation: touchIn .8s ease-in both; }
+@keyframes touchIn { to { transform: rotate(var(--r)) translateY(-60px); } }
+.cine.fin-hands.s6 .fig-l .figure { animation: warp 2.4s .8s ease-in-out both; }
+@keyframes warp { 30% { transform: scaleX(-1.4) skewY(14deg) scaleY(.8); } 60% { transform: scaleX(-.6) skewX(-20deg) scaleY(1.2); filter: hue-rotate(120deg); } to { transform: scaleX(-.3) scaleY(.3) translateY(150%); opacity: 0; } }
+
+/* Deadly Sentencing: Hammer, Urteil, Henkersschwert */
+.fx-court .gavel { position: absolute; left: 44%; top: 6%; width: 90px; height: 40px; border-radius: 8px; background: linear-gradient(#a16207, #713f12);
+  transform-origin: 100% 100%; animation: gavel .7s ease-in both; }
+.fx-court .gavel::after { content: ''; position: absolute; left: 80px; top: 14px; width: 80px; height: 12px; background: #713f12; }
+@keyframes gavel { from { transform: rotate(-70deg); } 80% { transform: rotate(8deg); } to { transform: rotate(0); } }
+.fx-court .verdict { position: absolute; left: 50%; top: 30%; transform: translateX(-50%) scale(3) rotate(-10deg); font-family: var(--jp); font-size: 54px; font-weight: 900;
+  color: #dc2626; border: 6px solid #dc2626; padding: 4px 14px; opacity: 0; animation: stamp .4s .7s ease-in both; }
+@keyframes stamp { to { transform: translateX(-50%) scale(1) rotate(-10deg); opacity: 1; } }
+.fx-court .exec { position: absolute; left: 20%; top: 50%; width: 60%; height: 6px; background: linear-gradient(90deg, transparent, #fde68a, #fff, transparent);
+  box-shadow: 0 0 20px #facc15; transform: rotate(-30deg) scaleX(0); animation: cut .4s 1.8s ease-out both; --r: -30deg; }
+.cine.fin-court.s6 .fig-l .figure { animation: koFall .7s 2s ease-in both; }
+
+/* Idle Death Gamble: 777, Sieger stürmt los, Gegner fliegt weg */
+.fx-gamble .jp { position: absolute; left: 50%; top: 18%; transform: translateX(-50%) scaleX(-1); font-family: var(--display); font-size: 64px; color: #fde68a;
+  text-shadow: 0 0 20px #ec4899; animation: slamIn .5s cubic-bezier(.2, 1.4, .4, 1) both; }
+.cine.fin-gamble.s6 .fig-w { left: 52%; transition-delay: 1.3s; transition-duration: .3s; }
+.cine.fin-gamble.s6 .fig-l { transform: translate(140%, -40%) rotate(70deg); transition-delay: 1.6s; transition-duration: .7s; }
+
+/* Authentic Mutual Love: Schwerter regnen herab */
+.fx-swords .rain { position: absolute; top: 0; width: 4px; height: 70px; background: linear-gradient(#fff, #f472b6); box-shadow: 0 0 8px #f472b6; animation: swordFall .6s ease-in both; }
+@keyframes swordFall { from { transform: translateY(-120px); opacity: 0; } to { transform: translateY(50vh); opacity: 1; } }
+.cine.fin-swords.s6 .fig-l .figure { animation: koFall .8s 1.6s ease-in both; }
+
+/* Skandha: Flutwelle mit Fischschwarm reißt den Gegner mit */
+.fx-beach .wave { position: absolute; left: -60%; bottom: 20%; width: 80%; height: 60%; border-radius: 50% 50% 0 0; background: linear-gradient(180deg, #67e8f9, #0e7490);
+  animation: waveIn 1.4s ease-in both; }
+@keyframes waveIn { to { left: 120%; } }
+.fx-beach .swarm { position: absolute; left: -20%; width: 26px; height: 10px; border-radius: 50%; background: #155e75; animation: swarm 1.2s ease-in both; }
+@keyframes swarm { to { left: 130%; } }
+.cine.fin-beach.s6 .fig-l { transform: translate(160%, -10%) rotate(40deg); transition-delay: .9s; transition-duration: 1s; }
+
+/* Time Cell Moon Palace: eingefroren im Filmbild, das zerspringt */
+.fx-frames .frame { position: absolute; left: 34%; top: 20%; width: 32%; height: 70%; border: 6px solid #c7d2fe; box-shadow: 0 0 30px #a5b4fc; animation: slamIn .4s both; }
+.fx-frames .shard { position: absolute; left: 50%; top: 50%; width: 30px; height: 40px; background: rgba(199, 210, 254, .6); clip-path: polygon(0 0, 100% 20%, 60% 100%);
+  animation: shardFly .8s 1.6s ease-out both; }
+@keyframes shardFly { from { transform: translate(0, 0); opacity: 0; } 10% { opacity: 1; } to { transform: translate(var(--x), var(--y)) rotate(var(--r)); opacity: 0; } }
+.cine.fin-frames.s6 .fig-l .figure { animation: frozen .1s steps(2) 8, shatter .5s 1.6s ease-out forwards; filter: grayscale(1); }
+@keyframes shatter { to { opacity: 0; transform: scaleX(-1) scale(1.2); filter: blur(6px); } }
+
+/* Aura des Verlierers erlischt nach dem Finisher */
+.cine.s6 .fig-l .aura { animation: auraOut .8s 1.8s ease-in forwards; }
+@keyframes auraOut { to { opacity: 0; transform: scale(.3); } }
+
+/* Siegerpose */
+.cine.s7 .fig-w .aura { opacity: 1; inset: -30% -70%; }
+.cine.s7 .fig-l { opacity: 0; transition: opacity .4s; }
+
+@media (max-width: 700px) {
+  .cine .fig { height: 44%; }
+  .cine .fig-w { left: 8%; } .cine .fig-l { right: 8%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cine .cam { transition: none; }
+}

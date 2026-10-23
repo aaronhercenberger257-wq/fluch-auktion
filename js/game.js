@@ -60,6 +60,7 @@
       kinds,
       names: names_,
       users,
+      domainIds: pack.abilities.filter((a) => a.type === 'domain').map((a) => a.id),
       lockedNext: null, // beim Spicken festgelegte nächste Karte
       coin: rnd() < 0.5 ? 0 : 1,
       nextStarter: null,
@@ -94,8 +95,11 @@
     id = id || (s.current && s.current.id);
     if (s.kinds[id] === 'vow') return s.players[p].budget >= 1 && !s.players[p].vow;
     if (s.kinds[id] === 'storage') return s.players[p].budget >= 1 && !s.players[p].storage;
+    if (isDomain(s, id) && hasDomain(s, p)) return false;
     return isActive(s, p);
   }
+  const isDomain = (s, id) => (s.domainIds || []).includes(id);
+  const hasDomain = (s, p) => s.players[p].slots.some((id) => isDomain(s, id));
   const isSpecial = (s, id) => s.kinds[id] === 'vow' || s.kinds[id] === 'storage';
 
   // ───────── Set-Chancen ─────────
@@ -191,7 +195,11 @@
         continue;
       }
       // Spezialkarte, die keiner kaufen kann → weg damit
-      if (isSpecial(s, id) && !canBid(s, 0, id) && !canBid(s, 1, id)) { s.graveyard.push(id); continue; }
+      if (!canBid(s, 0, id) && !canBid(s, 1, id)) {
+        s.graveyard.push(id);
+        if (isDomain(s, id)) log(s, `„${s.names[id]}“ fällt weg – beide haben schon eine Domain.`);
+        continue;
+      }
       s.skipNext = null;
       let starter = s.nextStarter;
       s.nextStarter = other(starter);
@@ -238,7 +246,9 @@
       const slots = stageSlots(s, p);
       const filled = s.stage === 'abilities' ? pl.filled : pl.equipFilled;
       while (slots.length < limit(s) && pool.length) {
-        const id = pool.shift();
+        const idx = pool.findIndex((id) => !(isDomain(s, id) && hasDomain(s, p)));
+        if (idx < 0) break;
+        const id = pool.splice(idx, 1)[0];
         slots.push(id);
         filled.push(id);
       }
@@ -526,6 +536,7 @@
 
     if (a.type === 'peek') {
       if (pl.tokens.peek < 1) return 'Du hast Sneak Peek schon benutzt.';
+      if (!isActive(s, p)) return 'Du kannst nichts mehr kaufen – Sneak Peek geht nicht mehr.';
       if (s.deck.length === 0) return 'Es kommt keine Karte mehr.';
       if (s.peek && s.peek.seen[p]) return 'Du hast Sneak Peek schon benutzt.';
       pl.tokens.peek--;
@@ -542,6 +553,13 @@
       const o = other(p);
       // Vorschlagen darf nur, wer gespickt hat – der andere kann danach zustimmen (blind oder selbst gespickt)
       if (!s.peek.votes[p] && !s.peek.seen[p] && !s.peek.votes[o]) return 'Erst muss jemand, der gespickt hat, das Überspringen vorschlagen.';
+      if (s.peek.seen[p] && !isActive(s, o)) {
+        s.peek.accepted = true;
+        s.peek.votes[p] = true;
+        s.skipNext = s.peek.id;
+        log(s, `${pl.name} überspringt die nächste Karte sofort (Sneak Peek).`);
+        return null;
+      }
       s.peek.votes[p] = !s.peek.votes[p];
       // Zieht der Vorschlagende zurück, ist auch eine blinde Zustimmung hinfällig
       if (!s.peek.votes[p] && s.peek.votes[o] && !s.peek.seen[o]) s.peek.votes[o] = false;
@@ -797,7 +815,7 @@
 
   const api = {
     SLOTS, BUDGET, SKIP_MAX_BID, CLASH_ROUNDS, skipBlocked, setBoosts, equipAllowed, liveAbilities, countingAbilities, newGame, startAuction, startStage,
-    act, isActive, canBid, canOverbid, soloPhase, stageSlots, score, computeResult,
+    act, isActive, canBid, hasDomain, isDomain, canOverbid, soloPhase, stageSlots, score, computeResult,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Game = api;

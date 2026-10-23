@@ -216,7 +216,7 @@
       ui.clashTimer = setTimeout(() => {
         ui.clashTimer = null;
         if (state.phase === 'clash') { Game.act(state, 0, { type: 'clashDone' }); broadcast(); }
-      }, 9000);
+      }, 22000);
     }
     // Host: nach der Pause die Ausrüstungs-Runde starten
     if (state.phase === 'intermission' && !ui.stageTimer) {
@@ -541,8 +541,13 @@
           ${iSaw ? '' : `<p class="hint">Stimm blind zu – oder benutz selbst Sneak Peek${my.tokens.peek ? '' : ' (hast du aber nicht mehr)'}.</p>`}`;
         btn = iSaw ? 'Zustimmen' : 'Blind zustimmen';
       } else if (iSaw) {
-        status = '<p class="hint">Willst du vorschlagen, sie zu überspringen? Dein Gegner erfährt nur davon, wenn du es vorschlägst.</p>';
-        btn = `Überspringen vorschlagen`;
+        if (!Game.isActive(state, foe())) {
+          status = `<p class="hint">${esc(their.name)} kann nichts mehr kaufen – du kannst die nächste Karte <b>sofort</b> überspringen.</p>`;
+          btn = 'Nächste Karte sofort überspringen';
+        } else {
+          status = '<p class="hint">Willst du vorschlagen, sie zu überspringen? Dein Gegner erfährt nur davon, wenn du es vorschlägst.</p>';
+          btn = `Überspringen vorschlagen`;
+        }
       } else if (theySaw) {
         status = `<p class="hint">${esc(their.name)} hat Sneak Peek benutzt 👀</p>`;
       }
@@ -557,7 +562,7 @@
       <p class="eyebrow">Spezial-Aktionen</p>
       <div class="special">
         <button class="btn btn-secondary" data-action="skip" ${t.skip && !skipWhy ? '' : 'disabled'} title="Überspringt diese ${what} sofort – nur wenn du dran bist und das Gebot höchstens ${Game.SKIP_MAX_BID} € ist">⏭ Skip</button>
-        <button class="btn btn-secondary" data-action="peek" ${t.peek && state.deck.length && !(pk && pk.seen[me]) ? '' : 'disabled'} title="Sieh heimlich, was als Nächstes kommt">👁 Sneak Peek</button>
+        <button class="btn btn-secondary" data-action="peek" ${t.peek && state.deck.length && Game.isActive(state, me) && !(pk && pk.seen[me]) ? '' : 'disabled'} title="${Game.isActive(state, me) ? 'Sieh heimlich, was als Nächstes kommt' : 'Deine Slots sind voll – Sneak Peek geht nicht mehr'}">👁 Sneak Peek</button>
         ${solo ? `<button class="btn btn-secondary glow" data-action="endskip" ${t.endskip ? '' : 'disabled'} title="Nur, wenn dein Gegner nichts mehr kaufen kann">⏩ Final Skip</button>` : ''}
       </div>
       <p class="hint">${skipHint}${solo && t.endskip ? `${esc(their.name)} kann nichts mehr kaufen – du hast einen <b>Final Skip</b>. ` : ''}Jede Aktion geht einmal${state.stages.length > 1 ? ' pro Runde' : ''}.</p>
@@ -652,7 +657,20 @@
     $('#pips-me').innerHTML = c.hits[me].map(pip).join('') + rest(c.hits[me].length);
     $('#pips-foe').innerHTML = c.hits[foe()].map(pip).join('') + rest(c.hits[foe()].length);
     const end = $('.clash-end');
-    if (c.done) {
+    if (c.done && ui.cineShown !== state.gameId) {
+      // Erst die Anime-Siegesanimation, danach das Ergebnis des Clashs
+      ui.cineShown = state.gameId;
+      cancelAnimationFrame(ui.clash && ui.clash.raf);
+      const layer = document.createElement('div');
+      document.body.appendChild(layer);
+      const loser = 1 - c.winner;
+      ui.cine = Cinematic.play(layer, {
+        winnerDomain: c.domains[c.winner], loserDomain: c.domains[loser],
+        winnerName: esc(state.players[c.winner].name), loserName: esc(state.players[loser].name),
+        domainName: esc(item(c.domains[c.winner]).name), meWon: c.winner === me,
+      }, () => { layer.remove(); ui.cine = null; ui.cineDone = state.gameId; if (state.phase === 'clash') updateClash(); });
+    }
+    if (c.done && ui.cineDone === state.gameId) {
       cancelAnimationFrame(ui.clash && ui.clash.raf);
       const won = c.winner === me;
       $('.clash-play').classList.add('over');
