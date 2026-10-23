@@ -572,6 +572,7 @@ window.PACKS.jjk = {
     { type: 'heal', id: 'umgekehrte-technik', factor: 0.5, label: 'Reverse Cursed Technique heilt' },
   ],
   domainDuelBonus: 15,   // stärkere Domain gewinnt das Domain-Duell
+  soloDomainBoost: 12,   // nur ein Spieler hat eine Domain → kleiner Boost
   // Gleicher Charakter verstärkt sich gegenseitig: jede Karte ×(1 + Wert × (Anzahl − 1))
   userSynergy: {
     'Satoru Gojo': 0.07, 'Ryomen Sukuna': 0.07, 'Yuta Okkotsu': 0.06, 'Megumi Fushiguro': 0.06,

@@ -156,9 +156,14 @@ def body_mesh(prefix, cfg):
     _select_only(obj)
     skin = obj.modifiers.new('Skin', 'SKIN')
     skin.use_smooth_shade = True
+    # Körperbau je Figur: cfg['radii'] = {'chest': 1.3, 'sh': 1.5, ...} (Schlüssel ohne .L/.R gilt für beide Seiten)
+    radii = cfg.get('radii', {})
     for i, (k, (co, r)) in enumerate(SKIN_PTS.items()):
         sv = me.skin_vertices[0].data[i]
-        sv.radius = r
+        f = radii.get(k, radii.get(k.split('.')[0], 1.0))
+        if isinstance(f, (int, float)):
+            f = (f, f)
+        sv.radius = (r[0] * f[0], r[1] * f[1])
     me.skin_vertices[0].data[0].use_root = True
     sub = obj.modifiers.new('Sub', 'SUBSURF')
     sub.levels = 2
@@ -337,6 +342,9 @@ def hair(prefix, cfg):
     for p in me.polygons:
         p.use_smooth = True
     me.materials.append(mat)
+    if style == 'none':
+        bpy.data.objects.remove(cap)
+        return []
     if style not in ('volcano', 'octo'):
         A.add_outline(cap, 0.005)
         parts.append(cap)

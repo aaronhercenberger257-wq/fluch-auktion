@@ -822,6 +822,11 @@
     // 11) Domain-Duell: die stärkere Domain gewinnt
     const myDom = list.filter((a) => a.type === 'domain').map((a) => val[a.id]);
     const foeDom = enemy.filter((a) => a.type === 'domain').map((a) => baseValue(pack, a, foeIds, foeEnergy).v);
+    // Nur ich habe eine Domain → kleiner Boost (kein Gegenspieler für den sicheren Treffer)
+    if (myDom.length && !foeDom.length && pack.soloDomainBoost) {
+      const best = list.filter((a) => a.type === 'domain').reduce((b, a) => (val[a.id] > val[b.id] ? a : b));
+      lines.push({ kind: 'duel', label: `Einzige Domain im Kampf: ${best.name}`, points: pack.soloDomainBoost });
+    }
     if (!me.clash && myDom.length && foeDom.length && Math.max(...myDom) > Math.max(...foeDom) && pack.domainDuelBonus) {
       const best = list.filter((a) => a.type === 'domain').reduce((b, a) => (val[a.id] > val[b.id] ? a : b));
       lines.push({ kind: 'duel', label: `Domain-Duell gewonnen: ${best.name}`, points: pack.domainDuelBonus });

@@ -1,0 +1,12 @@
+void: {"headBandsPct":{"sub":7,"low":60,"mid":24,"high":8,"air":1},"seconds":18.704,"peakDb":-1,"rmsDb":-12.6,"attackMs":8991,"brightnessHz":3789,"bandsPct":{"sub":51,"low":40,"mid":5,"high":4,"air":0}}
+shrine: {"headBandsPct":{"sub":7,"low":62,"mid":22,"high":8,"air":1},"seconds":18.653,"peakDb":-1,"rmsDb":-13.8,"attackMs":8991,"brightnessHz":4940,"bandsPct":{"sub":38,"low":40,"mid":12,"high":10,"air":1}}
+shadow: {"headBandsPct":{"sub":6,"low":62,"mid":23,"high":7,"air":1},"seconds":18.632,"peakDb":-1,"rmsDb":-13.3,"attackMs":8994,"brightnessHz":3247,"bandsPct":{"sub":48,"low":40,"mid":8,"high":4,"air":0}}
+hands: {"headBandsPct":{"sub":6,"low":61,"mid":23,"high":9,"air":1},"seconds":18.656,"peakDb":-1,"rmsDb":-13.3,"attackMs":8990,"brightnessHz":3637,"bandsPct":{"sub":52,"low":33,"mid":10,"high":5,"air":0}}
+volcano: {"headBandsPct":{"sub":7,"low":60,"mid":23,"high":8,"air":1},"seconds":18.607,"peakDb":-1,"rmsDb":-13.8,"attackMs":8994,"brightnessHz":5202,"bandsPct":{"sub":38,"low":49,"mid":7,"high":5,"air":1}}
+court: {"headBandsPct":{"sub":7,"low":60,"mid":24,"high":8,"air":1},"seconds":18.603,"peakDb":-1,"rmsDb":-13.2,"attackMs":8991,"brightnessHz":3743,"bandsPct":{"sub":44,"low":34,"mid":14,"high":8,"air":0}}
+gamble: {"headBandsPct":{"sub":7,"low":60,"mid":24,"high":8,"air":1},"seconds":18.685,"peakDb":-1,"rmsDb":-13.7,"attackMs":8991,"brightnessHz":4028,"bandsPct":{"sub":37,"low":37,"mid":16,"high":10,"air":1}}
+swords: {"headBandsPct":{"sub":6,"low":56,"mid":27,"high":9,"air":1},"seconds":18.768,"peakDb":-1,"rmsDb":-14,"attackMs":8990,"brightnessHz":4655,"bandsPct":{"sub":34,"low":38,"mid":20,"high":8,"air":1}}
+beach: {"headBandsPct":{"sub":6,"low":61,"mid":23,"high":8,"air":1},"seconds":18.54,"peakDb":-1,"rmsDb":-14.8,"attackMs":8991,"brightnessHz":3891,"bandsPct":{"sub":29,"low":34,"mid":25,"high":11,"air":1}}
+frames: {"headBandsPct":{"sub":6,"low":61,"mid":23,"high":8,"air":1},"seconds":18.651,"peakDb":-1,"rmsDb":-13.5,"attackMs":8991,"brightnessHz":4357,"bandsPct":{"sub":40,"low":43,"mid":10,"high":6,"air":1}}
+mahoraga_win: {"headBandsPct":{"sub":56,"low":44,"mid":0,"high":0,"air":0},"seconds":9.549,"peakDb":-1,"rmsDb":-11.6,"attackMs":1220,"brightnessHz":3341,"bandsPct":{"sub":39,"low":44,"mid":14,"high":3,"air":0}}
+mahoraga_lose: {"headBandsPct":{"sub":56,"low":44,"mid":0,"high":0,"air":0},"seconds":9.19,"peakDb":-1,"rmsDb":-11.7,"attackMs":1208,"brightnessHz":2389,"bandsPct":{"sub":41,"low":49,"mid":7,"high":3,"air":0}}

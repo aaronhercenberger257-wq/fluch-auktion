@@ -4,14 +4,16 @@ Aufruf:
   blender -b --factory-startup -P blender/scenes.py -- <domain> preview|full <ordner>
 Domains: void shrine shadow hands volcano court gamble swords beach frames
 
-Zeitplan (24 fps, 288 Bilder = 12 s):
-  S1   1– 42  Totale: die Energie beider Kämpfer prallt aufeinander
-  S2  43– 62  Reißschwenk auf den Sieger
-  S3  63–110  Fingerzeichen (Untersicht)            → Schrift „領域展開“ (HTML)
-  S4 111–138  Augen extrem nah, Augen glühen auf    → Titelkarte (HTML)
-  S5 139–180  Domain entfaltet sich, Kamera kreist
-  S6 181–246  Finisher (je Domain)
-  S7 247–288  Sieger-Kamerafahrt                    → „SIEG!“ (HTML)
+Zeitplan: gebaut mit 288 Bildern, danach auf 432 Bilder = 18 s gestreckt (finish_scene → retime).
+Endgültige Bilder (24 fps):
+  S1    1– 60  Totale: die Energie beider Kämpfer prallt aufeinander (Schockwellen)
+  S2   61– 84  Reißschwenk auf den Sieger (Speedlines)
+  S3   85–150  Fingerzeichen (Untersicht)            → Schrift „領域展開“ (HTML, 3,55 s)
+  S4  151–190  Augen extrem nah, Augen glühen auf    → Titelkarte (HTML, 6,3 s)
+  S5  191–280  Domain entfaltet sich; zweite Einstellung aus der Untersicht ab 236
+  S6  281–380  Finisher (je Domain), Impact-Frames, Kamera-Wackeln
+  S7  381–432  Sieger-Kamerafahrt                    → „SIEG!“ (HTML, 15,9 s)
+Tonspuren: tools/sfx/soundtrack.mjs (gleiche Zeitumrechnung).
 """
 import bpy
 import bmesh
@@ -29,7 +31,7 @@ import cast  # noqa: E402
 PI = math.pi
 FR = 288
 WX, FX = -2.0, 2.0          # Positionen Sieger / Gegner
-HEAD_Z = 1.76
+HEAD_Z = 1.745          # Augenhöhe (Kopf ist auf Anime-Proportionen verkleinert)
 rnd = random.Random(11)
 
 
@@ -284,6 +286,7 @@ def common(dom):
 
 
 def flash_at(ctx, frames):
+    ctx.setdefault('flashes', []).extend(frames)
     for f in frames:
         A.visible(ctx['flash'], f, True)
         A.visible(ctx['flash'], f + 2, False)
@@ -307,7 +310,7 @@ def expand(ctx, sky_obj, radius=60, f0=139, f1=158, env=()):
 def camera_track(ctx, fin_shots=None):
     """Kamerafahrten aller Einstellungen. fin_shots ersetzt die Finisher-Kamera (181–246)."""
     cam, tgt = ctx['cam'], ctx['tgt']
-    ex = WX + ctx['dom'].get('eyeFront', 0.13)  # Augen (der Sieger schaut nach +X)
+    ex = WX + ctx['dom'].get('eyeFront', 0.112)  # Augen (der Sieger schaut nach +X)
     ez = ctx['dom'].get('eyeZ', HEAD_Z)
     K = [
         (1, (0, -9.5, 2.2), (0, 0, 1.3), 28), (42, (0, -7.6, 1.9), (0, 0, 1.3), 28),
@@ -939,7 +942,7 @@ def fish(name, loc, mat, s=0.25):
 
 
 def d_beach():
-    dom = {'char': 'dagon', 'aura': '#22d3ee', 'arena': '#0c1820', 'eyeZ': 1.9, 'eyeFront': 0.19,
+    dom = {'char': 'dagon', 'aura': '#22d3ee', 'arena': '#0c1820', 'eyeZ': 1.86, 'eyeFront': 0.163,
            'signPose': {'upper.R': (-80, 0, 25), 'fore.R': (-80, 0, 0), 'upper.L': (-80, 0, -25), 'fore.L': (-80, 0, 0)}, 'twoHands': True}
     ctx = common(dom)
     W, Fo = ctx['W'], ctx['F']
@@ -1011,6 +1014,137 @@ def d_frames():
     return ctx
 
 
+# ═════════════════════════ Länger & detailreicher ═════════════════════════
+# Die Szenen werden mit 288 Bildern gebaut und danach auf 432 Bilder (18 s) gestreckt –
+# jede Einstellung bekommt mehr Zeit, besonders Domain-Entfaltung und Finisher.
+SEG_OLD = [1, 43, 63, 111, 139, 181, 247, 289]
+SEG_NEW = [1, 61, 85, 151, 191, 281, 381, 433]
+FR_LONG = 432
+
+
+def T(f):
+    """Altes Bild → neues Bild (stückweise linear)."""
+    for i in range(len(SEG_OLD) - 1):
+        a, b = SEG_OLD[i], SEG_OLD[i + 1]
+        if f < b or i == len(SEG_OLD) - 2:
+            A2, B2 = SEG_NEW[i], SEG_NEW[i + 1]
+            return A2 + (f - a) * (B2 - A2) / (b - a)
+    return f
+
+
+def retime(seg_old=None, seg_new=None, frames=None):
+    global SEG_OLD, SEG_NEW
+    if seg_old:
+        SEG_OLD, SEG_NEW = seg_old, seg_new
+    for act in bpy.data.actions:
+        for fc in A._fcurves(act):
+            for kp in fc.keyframe_points:
+                x = kp.co.x
+                kp.co.x = T(x)
+                kp.handle_left.x = T(kp.handle_left.x)
+                kp.handle_right.x = T(kp.handle_right.x)
+            fc.update()
+    bpy.context.scene.frame_end = frames or FR_LONG
+
+
+def speedlines(cam, ranges, color='#ffffff'):
+    """Anime-Speedlines: dünne Streifen rund um die Bildmitte, direkt vor der Kamera."""
+    mat = A.glow('SpeedM', color, 2.5, alpha=0.55)
+    root = A.empty('Speed', (0, 0, -0.5))
+    root.parent = cam
+    lines = []
+    r = random.Random(4)
+    for i in range(46):
+        a = i / 46 * math.tau + r.uniform(-0.05, 0.05)
+        d = r.uniform(0.22, 0.32)
+        ln = A.cube('Speed%d' % i, (math.cos(a) * (d + 0.12), math.sin(a) * (d + 0.12), 0), (0.12, 0.0016, 0.001), mat, rot=(0, 0, a))
+        ln.parent = root
+        lines.append(ln)
+    for o in lines:
+        A.visible(o, 1, False)
+        for f0, f1 in ranges:
+            A.visible(o, f0, True)
+            A.visible(o, f1, False)
+    # Größe an die Brennweite koppeln, damit die Linien immer am Bildrand liegen
+    lens_fc = None
+    if cam.data.animation_data and cam.data.animation_data.action:
+        for fc in A._fcurves(cam.data.animation_data.action):
+            if fc.data_path == 'lens':
+                lens_fc = fc
+    for f in range(1, FR_LONG, 2):
+        lens = lens_fc.evaluate(f) if lens_fc else cam.data.lens
+        k = 33.0 / max(lens, 10)
+        A.key(root, f, rot=(0, 0, r.uniform(-0.15, 0.15)), scale=(k, k, 1))
+    A.set_interp(root, 'CONSTANT')
+
+
+def shake(cam, frames, strength=0.06, length=10):
+    """Kamera-Wackeln nach Treffern (F-Kurven-Rauschen, zeitlich begrenzt)."""
+    for fc in A._fcurves(cam.animation_data.action):
+        if fc.data_path != 'location':
+            continue
+        for f in frames:
+            m = fc.modifiers.new('NOISE')
+            m.scale = 1.5
+            m.strength = strength
+            m.phase = f * 0.37 + fc.array_index * 11
+            m.use_restricted_range = True
+            m.frame_start = f
+            m.frame_end = f + length
+            m.blend_in = 1
+            m.blend_out = length * 0.6
+
+
+def shockwave(center, f0, color, life=16, size=6.0):
+    bpy.ops.mesh.primitive_torus_add(major_radius=1.0, minor_radius=0.025, location=center)
+    t = bpy.context.active_object
+    A.set_mat(t, A.glow('Shock_' + color, color, 5))
+    A.key(t, 1, scale=0.05)
+    A.key(t, f0, scale=0.05)
+    A.key(t, f0 + life, scale=size)
+    show_from([t], f0, f0 + life + 1)
+    return t
+
+
+def black_frames(ctx, frames):
+    """Impact-Frame: ein schwarzes Bild direkt nach dem weißen Blitz."""
+    bl = A.cube('ImpactBlack', (0, 0, -0.59), (2, 2, 0.01), A.glow('BlackM', '#000000', 0), outline=0)
+    bl.parent = ctx['cam']
+    A.visible(bl, 1, False)
+    for f in frames:
+        A.visible(bl, f, True)
+        A.visible(bl, f + 1, False)
+
+
+def finish_scene(ctx):
+    """Nach dem Bauen: strecken, zweite Domain-Einstellung, Speedlines, Wackeln, Impact-Frames, Schockwellen."""
+    flashes = sorted(set(ctx.get('flashes', [])))
+    retime()
+    cam, tgt = ctx['cam'], ctx['tgt']
+    # Zweite Einstellung in der Domain-Welt: Untersicht hinter dem Sieger, langsamer Vorwärtsflug
+    for o in (cam, tgt):
+        o.animation_data.action  # sicherstellen, dass es existiert
+    pos_end = (4.5, -6.3, 3.6)
+    A.cam_key(cam, tgt, 235, pos_end, (0, 0, 1.3), 24)
+    A.cam_key(cam, tgt, 236, (WX - 1.6, -1.1, 0.35), (WX + 3.0, 3.5, 2.6), 20)
+    A.cam_key(cam, tgt, 279, (WX - 1.1, -0.8, 0.5), (WX + 3.0, 3.5, 2.8), 20)
+    for o in (cam, tgt):
+        for fc in A._fcurves(o.animation_data.action):
+            for kp in fc.keyframe_points:
+                if int(round(kp.co.x)) in (235, 279):
+                    kp.interpolation = 'CONSTANT'
+    newf = [int(T(f)) for f in flashes]
+    speedlines(cam, [(61, 84), (281, 300)] + [(f, f + 8) for f in newf])
+    shake(cam, [1, 191] + newf, strength=0.05, length=12)
+    black_frames(ctx, [f + 2 for f in newf])
+    dom = ctx['dom']
+    shockwave((0, 0, 0.05), 6, dom['aura'], life=24, size=5)
+    shockwave((0, 0, 0.05), 30, '#ffffff', life=24, size=6)
+    shockwave((WX, 0, 0.05), 191, dom['aura'], life=30, size=14)
+    for f in newf:
+        shockwave((FX, 0, 0.05), f, '#ffffff', life=14, size=4)
+
+
 DOMAINS = {'void': d_void, 'shrine': d_shrine, 'shadow': d_shadow, 'hands': d_hands, 'volcano': d_volcano,
            'court': d_court, 'gamble': d_gamble, 'swords': d_swords, 'beach': d_beach, 'frames': d_frames}
 
@@ -1018,9 +1152,10 @@ if __name__ == '__main__':
     argv = sys.argv[sys.argv.index('--') + 1:]
     name, mode, out = argv[0], argv[1], argv[2]
     os.makedirs(out, exist_ok=True)
-    DOMAINS[name]()
+    ctx = DOMAINS[name]()
+    finish_scene(ctx)
     if mode == 'preview':
-        A.render_frames(out, [20, 50, 90, 125, 160, 190, 205, 220, 232, 270])
+        A.render_frames(out, [20, 70, 110, 170, 215, 255, 300, 330, 350, 400])
     else:
         A.render_frames(out)
     print('FERTIG', name)

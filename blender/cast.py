@@ -2,7 +2,7 @@
 import chars as C
 
 CAST = {
-    'gojo': dict(hair='#f2f5fb', hairShade='#9fb0cc', hairHi='#ffffff', hairStyle='spiky', coat='#151b2c', coatShade='#06080f',
+    'gojo': dict(radii={'sh': 0.92, 'el': 0.9, 'wr': 0.9, 'hi': 0.92, 'kn': 0.9, 'waist': 0.92}, hair='#f2f5fb', hairShade='#9fb0cc', hairHi='#ffffff', hairStyle='spiky', coat='#151b2c', coatShade='#06080f',
                  trim='#2b4a8a', outfit='uniform', eyes='#4fd2ff', eyeGlow=3.5, browColor='#e6ecf6', sign='cross'),
     'sukuna': dict(hair='#f4a3c4', hairShade='#b0607f', hairStyle='sukuna', coat='#f3efe6', coatShade='#b9b0a0', trim='#20181a',
                    outfit='kimono', eyes='#ff3b3b', eyeGlow=3.0, marks=True, scarf='#2a1d1d', browColor='#c46d8f', sign='enma'),
@@ -44,4 +44,29 @@ def build_char(key, prefix, loc=(0, 0, 0), facing=0.0, sign=True):
                 out.append(h)
             return out
         cfg['extra'] = horns
-    return C.build(prefix, cfg, loc, facing)
+    if key == 'yuta':          # Katana in der Scheide auf dem Rücken
+        prev = cfg.get('extra')
+        def katana_back(p, arm):
+            import animelib as A
+            out = prev(p, arm) if prev else []
+            sheath = A.cylinder(p + 'Sheath', (0.06, 0.16, 1.3), 0.025, 0.9, A.toon(p + 'SheathM', '#1c1720'), rot=(0, 0.6, 0), outline=0.004)
+            hilt = A.cylinder(p + 'KHilt', (-0.17, 0.16, 1.65), 0.02, 0.22, A.toon(p + 'KHiltM', '#3b2a4a'), rot=(0, 0.6, 0), outline=0.004)
+            for o in (sheath, hilt):
+                C.bind(o, arm, 'chest')
+            return out + [sheath, hilt]
+        cfg['extra'] = katana_back
+    if key == 'higuruma':      # Bartstoppeln
+        prev = cfg.get('extra')
+        def stubble(p, arm):
+            import animelib as A
+            out = prev(p, arm) if prev else []
+            st = A.sphere(p + 'Stubble', (0, -0.075, 1.67), (0.07, 0.05, 0.035), A.toon(p + 'StubM', '#5a4a44'), segments=16, outline=0)
+            C.bind(st, arm, 'head')
+            return out + [st]
+        cfg['extra'] = stubble
+    fig = C.build(prefix, cfg, loc, facing)
+    # Anime-Proportionen: Kopf kleiner (≈ 7,5 Kopflängen)
+    hb = fig['arm'].pose.bones['head']
+    hb.scale = (cfg.get('headScale', 0.86),) * 3
+    hb.keyframe_insert('scale', frame=1)
+    return fig

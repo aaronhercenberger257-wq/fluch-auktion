@@ -216,14 +216,14 @@
       ui.ritualTimer = setTimeout(() => {
         ui.ritualTimer = null;
         if (state.phase === 'ritual') { Game.act(state, 0, { type: 'ritualDone' }); broadcast(); }
-      }, 15000);
+      }, 18000);
     }
     // Host: nach dem Domain Clash automatisch weiter (falls keiner klickt)
     if (state.phase === 'clash' && state.clash && state.clash.done && !ui.clashTimer) {
       ui.clashTimer = setTimeout(() => {
         ui.clashTimer = null;
         if (state.phase === 'clash') { Game.act(state, 0, { type: 'clashDone' }); broadcast(); }
-      }, 22000);
+      }, 28000);
     }
     // Host: nach der Pause die Ausrüstungs-Runde starten
     if (state.phase === 'intermission' && !ui.stageTimer) {

@@ -197,7 +197,7 @@
   // ───────── 3D-Videos (in Blender gerendert, siehe Ordner blender/) ─────────
   // Zeiten in Sekunden: wann welche Schrift über dem Video erscheint
   // Alle Videos folgen derselben Dramaturgie (blender/scenes.py) → gleiche Schrift-Zeitpunkte
-  const CUES = [['s3', 2.6], ['s4', 4.6], ['s5', 5.8], ['s7', 10.3]];
+  const CUES = [['s3', 3.55], ['s4', 6.3], ['s5', 7.95], ['s7', 15.9]];   // 18-s-Fassung
   const VIDEOS = {};
   Object.entries({
     'unendliche-leere': 'void', 'boeser-schrein': 'shrine', 'chimaera-garten': 'shadow', 'selbstverkoerperung': 'hands',
@@ -209,7 +209,7 @@
     const D = DOMAINS[o.winnerDomain];
     const W = CHARS[D.char];
     container.innerHTML = `<div class="cine vid" style="--wa:${W.aura}">
-      <video class="cine-video" src="${v.src}" muted playsinline preload="auto"></video>
+      <video class="cine-video" src="${v.src}" playsinline preload="auto"></video>
       <div class="ryoiki"><b>領域展開</b><span>DOMAIN EXPANSION</span></div>
       <div class="dtitle"><b>${D.kanji}</b><span>${o.domainName}</span><small>${D.line}</small></div>
       <div class="victory"><b>${o.meWon ? 'SIEG!' : 'NIEDERLAGE'}</b><span>${o.winnerName} gewinnt den Domain Clash</span></div>
@@ -228,16 +228,28 @@
     });
     video.addEventListener('ended', () => setTimeout(finish, 900));
     video.addEventListener('error', () => { if (!finished) { finished = true; play(container, o, onDone); } });
-    const p = video.play();
-    if (p && p.catch) p.catch(() => { if (!finished) { finished = true; play(container, o, onDone); } });
+    playWithSound(video, () => { if (!finished) { finished = true; play(container, o, onDone); } });
     cine.querySelector('.cine-skip').onclick = finish;
     return { stop: finish };
+  }
+
+  // Erst mit Ton versuchen; verbietet der Browser Autoplay mit Ton, stumm abspielen
+  function playWithSound(video, onFail) {
+    video.muted = false;
+    video.volume = 0.85;
+    const p = video.play();
+    if (!p || !p.catch) return;
+    p.catch(() => {
+      video.muted = true;
+      const p2 = video.play();
+      if (p2 && p2.catch) p2.catch(onFail);
+    });
   }
 
   // Kurzer Clip (z. B. Mahoraga-Beschwörung) mit Titel am Ende
   function playClip(container, o, onDone) {
     container.innerHTML = `<div class="cine vid clip" style="--wa:${o.color || '#e5e7eb'}">
-      <video class="cine-video" src="${o.src}" muted playsinline preload="auto"></video>
+      <video class="cine-video" src="${o.src}" playsinline preload="auto"></video>
       <div class="victory"><b>${o.title}</b><span>${o.sub || ''}</span></div>
       <button class="cine-skip" type="button">Überspringen ⏭</button>
     </div>`;
@@ -248,8 +260,7 @@
     video.addEventListener('timeupdate', () => { if (video.duration && video.currentTime > video.duration - 2.2) cine.classList.add('s7'); });
     video.addEventListener('ended', () => setTimeout(finish, 1200));
     video.addEventListener('error', () => setTimeout(finish, 300));
-    const p = video.play();
-    if (p && p.catch) p.catch(() => setTimeout(finish, 300));
+    playWithSound(video, () => setTimeout(finish, 300));
     cine.querySelector('.cine-skip').onclick = finish;
     return { stop: finish };
   }

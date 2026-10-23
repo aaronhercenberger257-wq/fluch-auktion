@@ -27,45 +27,87 @@ SUMX, MAHX = -1.7, 0.7
 
 
 def build_mahoraga():
-    cfg = dict(hair='#f2efe7', hairShade='#b8b3a6', hairStyle='bald', coat='#ece8de', coatShade='#a8a395',
-               trim='#4a4a55', outfit='robe', skin='#ece8de', skinShade='#a8a395', closedEyes=True,
-               browColor='#ece8de', angryBrows=True, eyes='#ffffff')
+    """Mahoraga nach Anime-Vorlage: riesig, muskulös, weiße Haut, kleiner Kopf mit vier Flügeln über den Augen,
+    waagerecht schwebendes Rad mit acht Griffen, Klinge am rechten Unterarm, Lendentuch mit dunkler Schärpe."""
+    white = '#efece4'
+    cfg = dict(hair=white, hairStyle='none', coat=white, coatShade='#a9a498', skin=white, skinShade='#a9a498',
+               trim='#2b2b33', outfit='none', closedEyes=True, browColor=white, angryBrows=True, eyes='#ffffff',
+               shoe=white,
+               radii={'pelvis': (1.25, 1.3), 'waist': (1.05, 1.15), 'chest': (1.55, 1.4), 'upchest': (1.7, 1.5),
+                      'neck': 1.7, 'neckTop': 1.55, 'sh': 1.55, 'el': 1.3, 'wr': 1.15, 'ha': 1.2,
+                      'hi': 1.35, 'kn': 1.35, 'an': 1.2, 'to': 1.15})
 
     def extra(p, arm):
         parts = []
-        bone = A.toon(p + 'Bone', '#f5f2ea', shade='#b2ab9b')
+        skin = A.toon(p + 'Skin', white, shade='#a9a498')
+        wing = A.toon(p + 'WingM', '#f6f3ec', shade='#b6b0a2')
         gold = A.toon(p + 'Gold', '#d9b24a', shade='#8a6a1e')
-        # Flügel an den Schläfen (über den Augen)
+        sash = A.toon(p + 'Sash', '#2b2b33', shade='#121217')
+        cloth = A.toon(p + 'Cloth', '#e4e0d6', shade='#9d978a')
+        # Brust- und Bauchmuskeln
         for sx in (-1, 1):
-            w = A.cone(p + 'Wing%d' % sx, (0.12 * sx, -0.06, 1.8), 0.05, 0.22, bone, rot=(0, sx * 1.25, 0), verts=4, outline=0.005)
-            w.scale = (1, 0.35, 1)
-            C.bind(w, arm, 'head')
-            parts.append(w)
-        # Das achtspeichige Rad über dem Kopf (dreht sich unabhängig → eigenes Objekt)
-        wheel = A.empty(p + 'Wheel', (0, 0.05, 2.18))
-        bpy.ops.mesh.primitive_torus_add(major_radius=0.3, minor_radius=0.025, location=(0, 0, 0))
+            m = A.sphere(p + 'Pec%d' % sx, (0.085 * sx, -0.125, 1.4), (0.11, 0.05, 0.075), skin, segments=16, outline=0.006)
+            C.bind(m, arm, 'chest')
+            parts.append(m)
+            for row, z in enumerate((1.27, 1.19, 1.11)):
+                ab = A.sphere(p + 'Ab%d%d' % (sx, row), (0.042 * sx, -0.108, z), (0.038, 0.022, 0.032), skin, segments=12, outline=0.004)
+                C.bind(ab, arm, 'spine')
+                parts.append(ab)
+        # Vier Flügel am Kopf (je zwei pro Seite, über den Augen, nach hinten-oben)
+        for sx in (-1, 1):
+            for k, (z, up) in enumerate(((1.79, 0.05), (1.74, -0.02))):
+                w = C.strand(p + 'Wing%d%d' % (sx, k), [(0.06 * sx, -0.135, z), (0.15 * sx, -0.06, z + up + 0.02),
+                                                         (0.22 * sx, 0.08, z + up + 0.08)], 0.045, wing, flat=0.3)
+                C.bind(w, arm, 'head')
+                parts.append(w)
+        # Das Rad: flach über dem Kopf, acht Speichen, Griffe ragen über den Ring hinaus
+        wheel = A.empty(p + 'Wheel', (0, 0.02, 2.0))
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.42, minor_radius=0.03, location=(0, 0, 0))
         ring = bpy.context.active_object
         ring.name = p + 'WheelRing'
         A.set_mat(ring, gold)
         A.add_outline(ring, 0.006)
         ring.parent = wheel
-        hub = A.sphere(p + 'Hub', (0, 0, 0), 0.06, gold, segments=12, outline=0.006)
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.14, minor_radius=0.025, location=(0, 0, 0))
+        inner = bpy.context.active_object
+        inner.name = p + 'WheelInner'
+        A.set_mat(inner, gold)
+        inner.parent = wheel
+        hub = A.sphere(p + 'Hub', (0, 0, 0), 0.07, gold, segments=12, outline=0.006)
         hub.parent = wheel
         for i in range(8):
             a = i / 8 * math.tau
-            sp = A.cylinder(p + 'Spoke%d' % i, (math.cos(a) * 0.2, math.sin(a) * 0.2, 0), 0.012, 0.42, gold, rot=(0, PI / 2, a), outline=0.004)
+            sp = A.cylinder(p + 'Spoke%d' % i, (math.cos(a) * 0.28, math.sin(a) * 0.28, 0), 0.014, 0.56, gold, rot=(0, PI / 2, a), outline=0.004)
             sp.parent = wheel
-            kn = A.sphere(p + 'Knob%d' % i, (math.cos(a) * 0.43, math.sin(a) * 0.43, 0), 0.04, gold, segments=10, outline=0.004)
+            hd = A.cylinder(p + 'Handle%d' % i, (math.cos(a) * 0.5, math.sin(a) * 0.5, 0), 0.02, 0.14, gold, rot=(0, PI / 2, a), outline=0.004)
+            hd.parent = wheel
+            kn = A.sphere(p + 'Knob%d' % i, (math.cos(a) * 0.58, math.sin(a) * 0.58, 0), 0.035, gold, segments=10, outline=0.004)
             kn.parent = wheel
         C.bind(wheel, arm, 'head')
-        # Klinge am rechten Unterarm (Schwert der Auslöschung)
-        blade = A.cube(p + 'Blade', (-0.3, -0.02, 0.55), (0.03, 0.012, 0.5), A.toon(p + 'Steel', '#e8eef6', shade='#8a96aa', highlight='#ffffff'), outline=0.005)
+        # Schwert der Auslöschung: breite Klinge am rechten Unterarm, ragt weit über die Hand hinaus
+        blade = A.cube(p + 'Blade', (-0.29, -0.05, 0.62), (0.035, 0.008, 0.55),
+                       A.toon(p + 'Steel', '#f3f6fb', shade='#9aa6ba', highlight='#ffffff'), outline=0.005)
         C.bind(blade, arm, 'fore.R')
-        parts += [wheel, blade]
+        edge = A.cube(p + 'Edge', (-0.29, -0.065, 0.62), (0.008, 0.004, 0.55), A.glow(p + 'EdgeGlow', '#fff6c8', 3))
+        C.bind(edge, arm, 'fore.R')
+        # Lendentuch + Schärpe
+        loin = A.cylinder(p + 'Loin', (0, 0, 0.78), 0.2, 0.46, cloth, r2=0.27, verts=32, outline=0.008)
+        loin.rotation_euler = (PI, 0, 0)
+        loin.scale = (1.25, 1.1, 1)
+        C.bind(loin, arm, 'pelvis')
+        belt = A.cylinder(p + 'Sash', (0, 0, 1.02), 0.2, 0.09, sash, verts=32, outline=0.006)
+        belt.scale = (1.25, 1.15, 1)
+        C.bind(belt, arm, 'pelvis')
+        flap = A.cube(p + 'Flap', (0, -0.21, 0.78), (0.09, 0.012, 0.24), sash, outline=0.005)
+        C.bind(flap, arm, 'pelvis')
+        parts += [wheel, blade, edge, loin, belt, flap]
         return parts
     cfg['extra'] = extra
     fig = C.build('Maho', cfg, loc=(MAHX, 0, 0), facing=-PI / 2)
-    fig['arm'].scale = (1.45, 1.45, 1.45)
+    fig['arm'].scale = (1.5, 1.5, 1.5)
+    hb = fig['arm'].pose.bones['head']
+    hb.scale = (0.8, 0.8, 0.8)   # kleiner Kopf auf riesigem Körper
+    hb.keyframe_insert('scale', frame=1)
     return fig
 
 
@@ -106,7 +148,7 @@ def run(mode):
     C.pose(M, 54, spine=(0, 0, 0), head=(-8, 0, 0))
     # Rad dreht sich in Klicks (Anpassung)
     for f, r in ((1, 0), (58, 0), (59, PI / 4), (66, PI / 4), (67, PI / 2), (120, PI / 2), (121, 3 * PI / 4)):
-        A.key(wheel, f, rot=(PI / 2, 0, r))
+        A.key(wheel, f, rot=(0, 0, r))  # flach über dem Kopf
     A.set_interp(wheel, 'CONSTANT')
     shadow_mat = A.toon('ShadowDrip', '#000000')
     for i in range(10):   # Schatten tropfen von Mahoraga ab, während er aufsteigt
@@ -127,7 +169,7 @@ def run(mode):
 
     K = [(1, (SUMX + 1.6, -2.4, 1.5), (SUMX, 0, 1.6), 34), (17, (SUMX + 1.4, -2.1, 1.55), (SUMX, 0, 1.65), 38),
          (18, (2.4, -3.0, 0.35), (MAHX, 0, 2.2), 22), (56, (2.0, -3.4, 0.5), (MAHX, 0, 2.9), 22),
-         (57, (MAHX - 0.2, -1.6, 3.0), (MAHX, 0.05, 3.15), 45), (70, (MAHX - 0.1, -1.4, 3.1), (MAHX, 0.05, 3.2), 50)]
+         (57, (MAHX - 0.4, -1.6, 4.2), (MAHX, 0.03, 3.0), 38), (70, (MAHX - 0.2, -1.35, 4.05), (MAHX, 0.03, 3.0), 44)]
     cuts = {17, 56, 70}
 
     if mode == 'lose':
@@ -207,8 +249,9 @@ if __name__ == '__main__':
     mode, render, out = argv[0], argv[1], argv[2]
     os.makedirs(out, exist_ok=True)
     run(mode)
+    S.retime([1, 61, 145], [1, 97, 217], 216)   # länger: Beschwörung 4 s, Kampf 5 s
     if render == 'preview':
-        A.render_frames(out, [10, 40, 62, 74, 78, 90, 100, 130])
+        A.render_frames(out, [16, 64, 100, 118, 124, 140, 160, 200])
     else:
         A.render_frames(out)
     print('FERTIG', mode)
