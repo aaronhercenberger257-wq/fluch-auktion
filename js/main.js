@@ -263,7 +263,7 @@
     if (state.gameId !== ui.gameId) {
       ui.gameId = state.gameId;
       ui.lastRound = null; ui.slotCounts = [0, 0, 0, 0]; ui.lastHigh = null;
-      ui.lastEv = state.evSeq; ui.final = null; ui.rematchSent = null; ui.sealPick = null;
+      ui.lastEv = state.evSeq; ui.final = null; ui.rematchSent = null; ui.sealPick = null; ui.spinSeen = 0; ui.spinning = false;
     }
     announceEvents();
     if (state.phase === 'coin') renderCoin();
@@ -271,6 +271,7 @@
     else if (state.phase === 'intermission') renderIntermission();
     else if (state.phase === 'final') renderFinal();
     else if (state.phase === 'seal') renderSeal();
+    else if (state.phase === 'gamble') { if (!ui.spinning) renderGamble(); }
     else if (state.phase === 'result') renderResult();
   }
 
@@ -286,6 +287,7 @@
       if (ev.kind === 'peekskip') return `${nm} wurde nach dem Sneak Peek übersprungen`;
       if (ev.kind === 'peek' && ev.player !== me) return `${who} hat Sneak Peek benutzt 👀`;
       if (ev.kind === 'sealstart') return ev.player === me ? 'Prison Realm öffnet sich …' : `${who} öffnet Prison Realm! 🧊`;
+      if (ev.kind === 'gamblestart') return ev.player === me ? 'Der Automat von Idle Death Gamble wartet auf dich 🎰' : `${who} tritt an den Automaten 🎰`;
       if (ev.kind === 'sealed') return `${nm} wurde versiegelt 🔒`;
       return null;
     }).filter(Boolean);
@@ -574,6 +576,86 @@
     ui.slotCounts = [0, 1].map((p) => state.players[p].slots.length).concat([0, 1].map((p) => state.players[p].equip.length));
   }
 
+  // ───────── Automat von Idle Death Gamble ─────────
+  const REEL_SYMBOLS = ['7', '🔔', '🍒', '💎', '🎴', '🀄'];
+  const OUTCOME_TEXT = {
+    jackpot: { title: '🎰 JACKPOT!', text: 'Alle deine Fähigkeiten werden stärker – und deine Fluchkraft verdoppelt (ohne Fluchkraft-Runde zählen deine Domains doppelt). Der Automat stoppt.' },
+    reach: { title: 'Trostpreis: REACH', text: 'Hörst du jetzt auf, werden alle deine Fähigkeiten etwas stärker. Drehst du weiter, setzt du ihn aufs Spiel.' },
+    fever: { title: 'Trostpreis: FEVER', text: 'Hörst du jetzt auf, wird „Idle Death Gamble“ deutlich stärker. Drehst du weiter, setzt du ihn aufs Spiel.' },
+    miss: { title: 'Nichts …', text: 'Kein Gewinn. Hörst du jetzt auf, passiert nichts. Endet dein letzter Spin so, wird alles 5 % schwächer.' },
+  };
+
+  function reelFace(outcome, seed) {
+    const others = REEL_SYMBOLS.filter((x) => x !== '7' && x !== '🔔');
+    const pick = (n) => others[(seed * 7 + n * 3) % others.length];
+    if (outcome === 'jackpot') return ['7', '7', '7'];
+    if (outcome === 'reach') return ['7', '7', pick(1)];
+    if (outcome === 'fever') return ['🔔', '🔔', '🔔'];
+    const a = pick(0), b = pick(2);
+    return [a, b === a ? pick(4) : b, seed % 2 ? '7' : pick(5)];
+  }
+
+  function renderGamble() {
+    const G = state.gamble;
+    const owner = state.players[G.player];
+    if (G.player !== me) {
+      $('#game').innerHTML = `<div class="final"><div class="seal-box gamble-box">
+        <div class="slot-lights"></div>
+        <h2 class="final-title">Idle Death Gamble</h2>
+        <p>🎰 ${esc(owner.name)} dreht am Automaten … <br><span class="muted">Was dabei herauskommt, bleibt bis zur Auswertung geheim.</span></p>
+        <div class="inter-bar wait"><span></span></div></div></div>`;
+      return;
+    }
+    const seen = ui.spinSeen || 0;
+    const fresh = G.spins.length > seen;
+    const shown = fresh ? G.spins.slice(0, seen) : G.spins;
+    const last = shown[shown.length - 1];
+    const face = last ? reelFace(last, shown.length) : ['?', '?', '?'];
+    const info = last ? OUTCOME_TEXT[last] : null;
+    const doneShown = G.done && !fresh;
+    let actions;
+    if (doneShown) {
+      const res = G.outcome === 'jackpot' ? 'Jackpot!' : G.outcome === 'reach' ? 'Du nimmst den Trostpreis „Reach“ mit.' : G.outcome === 'fever' ? 'Du nimmst den Trostpreis „Fever“ mit.'
+        : G.outcome === 'miss' ? 'Alle Spins verbraucht – alles wird 5 % schwächer.' : 'Du hast aufgehört – kein Gewinn, keine Strafe.';
+      actions = `<p class="gamble-res ${G.outcome}">${res}</p><button class="btn btn-primary btn-big" data-action="gamble-done">Weiter zur Auswertung</button>`;
+    } else {
+      actions = `<div class="actions">
+          <button class="btn btn-secondary" data-action="stop-spin" ${ui.spinning ? 'disabled' : ''}>Aufhören${last === 'reach' || last === 'fever' ? ' & Preis nehmen' : ''}</button>
+          <button class="btn btn-primary" data-action="spin" ${ui.spinning || G.spinsLeft < 1 ? 'disabled' : ''}>🎰 Drehen (${G.spinsLeft} übrig)</button>
+        </div>`;
+    }
+    $('#game').innerHTML = `<div class="final"><div class="seal-box gamble-box">
+      <div class="slot-lights ${last === 'jackpot' && !fresh ? 'win' : ''}"></div>
+      <h2 class="final-title">Idle Death Gamble</h2>
+      <p class="muted">Nur du siehst den Automaten. ${G.total} Spins${G.total > 3 ? ' (inkl. 2 von „Rough Energy“)' : ''}.</p>
+      <div class="machine"><div class="reels">${face.map((f, i) => `<div class="reel" id="reel${i}"><span>${f}</span></div>`).join('')}</div></div>
+      <div class="spin-log">${G.spins.slice(0, shown.length).map((r, i) => `<span class="pip ${r}" title="Spin ${i + 1}">${i + 1}</span>`).join('')}${Array.from({ length: G.total - shown.length }, () => '<span class="pip"></span>').join('')}</div>
+      ${info && !fresh ? `<div class="gamble-info ${last}"><b>${info.title}</b><p>${info.text}</p></div>` : '<div class="gamble-info"><p>Chancen pro Spin: ca. <b>15 %</b> Jackpot · <b>17 %</b> Reach · <b>13 %</b> Fever · sonst nichts.</p></div>'}
+      ${actions}
+    </div></div>`;
+    if (fresh && !ui.spinning) animateSpin(G.spins[seen], seen + 1);
+  }
+
+  function animateSpin(outcome, n) {
+    ui.spinning = true;
+    renderGambleButtonsDisabled();
+    const final = reelFace(outcome, n);
+    const reels = [0, 1, 2].map((i) => document.querySelector('#reel' + i));
+    reels.forEach((r) => r && r.classList.add('spinning'));
+    const timers = reels.map((r, i) => setInterval(() => {
+      if (r) r.firstElementChild.textContent = REEL_SYMBOLS[Math.floor(Math.random() * REEL_SYMBOLS.length)];
+    }, 70));
+    [0, 1, 2].forEach((i) => setTimeout(() => {
+      clearInterval(timers[i]);
+      const r = document.querySelector('#reel' + i);
+      if (r) { r.classList.remove('spinning'); r.firstElementChild.textContent = final[i]; r.classList.add('stop'); }
+      if (i === 2) setTimeout(() => { ui.spinning = false; ui.spinSeen = n; if (state && state.phase === 'gamble') renderGamble(); }, 450);
+    }, 900 + i * 450));
+  }
+  function renderGambleButtonsDisabled() {
+    document.querySelectorAll('[data-action=spin],[data-action=stop-spin]').forEach((b) => (b.disabled = true));
+  }
+
   // Prison Realm: der Gegner schlägt 2 Fähigkeiten vor, der Besitzer versiegelt eine davon
   function renderSeal() {
     const sl = state.seal;
@@ -749,7 +831,8 @@
       <li>📜 <b>Binding Vow</b>: eine Spezialkarte für einen Extra-Slot. Vor der Auswertung opferst du eine Fähigkeit – dafür wird eine andere viel stärker.</li>
       <li>🎲 <b>Sets</b>: Hast du schon Karten eines Charakters (z. B. Gojo), kommen weitere Karten von ihm öfter – je mehr du hast, desto öfter. Hat dein Gegner auch welche, steigt die Chance noch mehr. Pro Spieler zählt nur ein Set: das, von dem noch die meisten Karten im Stapel sind.</li>
       <li>Leere Slots werden am Ende <b>zufällig</b> gefüllt.</li>
-      <li>✦ <b>Spezial-Effekte</b>: Manche Karten wirken direkt auf den Gegner – z. B. <b>Deadly Sentencing</b> beschlagnahmt seine stärkste Fluchtechnik, <b>Cursed Speech</b> stoppt seinen stärksten Kampfskill, <b>Copy</b> kopiert einen Teil seiner stärksten Technik, <b>Boogie Woogie</b> weicht seinem stärksten Konter aus, <b>Reverse Cursed Technique</b> heilt Schwächungen, <b>Idle Death Gamble</b> würfelt um einen Jackpot. Haben beide eine Domain, gewinnt die stärkere das <b>Domain-Duell</b>. Mehrere Gojo-Karten verstärken sich gegenseitig.</li>
+      <li>✦ <b>Spezial-Effekte</b>: Manche Karten wirken direkt auf den Gegner – z. B. <b>Deadly Sentencing</b> beschlagnahmt seine stärkste Fluchtechnik, <b>Cursed Speech</b> stoppt seinen stärksten Kampfskill, <b>Copy</b> kopiert einen Teil seiner stärksten Technik, <b>Boogie Woogie</b> weicht seinem stärksten Konter aus, <b>Reverse Cursed Technique</b> heilt Schwächungen, <b>Idle Death Gamble</b> lässt dich vor der Auswertung am Automaten drehen (siehe unten). Haben beide eine Domain, gewinnt die stärkere das <b>Domain-Duell</b>. Mehrere Gojo-Karten verstärken sich gegenseitig.</li>
+      <li>🎰 <b>Idle Death Gamble – Automat</b>: Wer die Karte hat, darf vor der Auswertung bis zu 3-mal drehen (mit „Rough Energy“ 5-mal) – nur er sieht den Automaten. Nach jedem Spin entscheidest du: weiter oder aufhören. <b>Jackpot</b> (ca. 15 %): alle Fähigkeiten stärker, deine Fluchkraft doppelt, die des Gegners etwas schwächer – ohne Fluchkraft-Runde zählen deine Domains doppelt. <b>Trostpreise</b> „Reach“ und „Fever“ geben kleine Boni, wenn du danach aufhörst. Hörst du bei „nichts“ auf, passiert nichts – sind aber alle Spins weg und der letzte war eine Niete, wird alles 5 % schwächer.</li>
       <li>🧊 <b>Prison Realm</b> (Ausrüstung): Dein Gegner schlägt 2 seiner Fähigkeiten vor – du versiegelst eine davon, sie zählt dann nicht.</li>
       <li>🔥 <b>Zusatzmodus Fluchkraft-Runde</b>: Zum Schluss bietet ihr mit dem Restgeld um die Fluchkraft eines Charakters (nur eine pro Spieler). Viel <b>Menge</b> bringt Punkte und hilft energiehungrigen Fähigkeiten, gute <b>Kontrolle</b> gleicht Schwächen aus. Gojos Fluchkraft ist riesig – aber ohne Six Eyes schlecht kontrolliert.</li>
       <li><b>Modus „Mit Ausrüstung“</b>: Nach den Fähigkeiten wird dein Restgeld verdoppelt und ihr ersteigert 3 Ausrüstungen (Waffen, verfluchte Werkzeuge). Am Ende zählen 2 – mit der Spezialkarte <b>Inventory Curse</b> alle 3. Viele Ausrüstungen kontern außerdem, was dein Gegner hat (z. B. <b>Prison Realm</b> gegen Gojo, <b>Inverted Spear of Heaven</b> gegen Fluchtechniken). Passt eine Ausrüstung zu deinen Fähigkeiten oder ihrem ursprünglichen Besitzer, gibt es Bonus.</li>
@@ -799,6 +882,12 @@
       if (ui.sealPick.includes(id)) ui.sealPick = ui.sealPick.filter((x) => x !== id);
       else { ui.sealPick.push(id); if (ui.sealPick.length > 2) ui.sealPick.shift(); }
       renderSeal();
+    } else if (act === 'spin' && !ui.spinning) {
+      doAction({ type: 'spin' });
+    } else if (act === 'stop-spin' && !ui.spinning) {
+      doAction({ type: 'stopSpin' });
+    } else if (act === 'gamble-done') {
+      doAction({ type: 'gambleDone' });
     } else if (act === 'seal-offer') {
       doAction({ type: 'sealOptions', ids: ui.sealPick || [] });
     } else if (act === 'seal-choose') {
@@ -818,7 +907,15 @@
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
+  // Testmodus (nur mit ?debug in der Adresse): Spielstand lokal laden, ohne Online-Verbindung
+  if (new URLSearchParams(location.search).has('debug')) {
+    window.__fa = {
+      load(s, asPlayer) { state = s; me = asPlayer || 0; net = net || { send() {} }; ui.gameId = null; render(); },
+      get state() { return state; },
+    };
+  }
+
   window.addEventListener('beforeunload', (e) => {
-    if (state && ['auction', 'intermission', 'final', 'seal'].includes(state.phase)) { e.preventDefault(); e.returnValue = ''; }
+    if (state && ['auction', 'intermission', 'final', 'seal', 'gamble'].includes(state.phase)) { e.preventDefault(); e.returnValue = ''; }
   });
 })();

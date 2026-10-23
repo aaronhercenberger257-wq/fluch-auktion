@@ -92,7 +92,7 @@ window.PACKS.jjk = {
       desc: 'In Higurumas Domain wird ein Prozess geführt. Wird der Gegner schuldig gesprochen, verliert er seine Fluchtechnik – oder bekommt sogar das Henkersschwert zu spüren.' },
 
     { id: 'idle-death-gamble', name: "Idle Death Gamble", user: 'Kinji Hakari', type: 'domain', value: 80,
-      effect: "Glücksspiel: Bei der Auswertung wird gedreht – mit etwas Glück gibt es den Jackpot!",
+      effect: "Glücksspiel: Vor der Auswertung darfst du bis zu 3-mal am Automaten drehen – Jackpot, Trostpreise oder Pech!",
       tags: ['regel', 'heilung'],
       art: { kanji: '賭', c1: '#1a0b24', c2: '#ec4899', glyph: 'dice' },
       short: 'Ein Glücksspiel-Automat – beim Jackpot wird Hakari unsterblich.',
@@ -362,6 +362,13 @@ window.PACKS.jjk = {
       art: { kanji: '豪', c1: '#0f1a0a', c2: '#bef264', glyph: 'kick' },
       short: 'Ein Muskelberg mit messerscharfem Kampfverstand.',
       desc: 'Todo ist körperlich einer der stärksten Zauberer und liest jeden Kampf wie ein Buch. Auch ohne Technik ist er brandgefährlich.' },
+
+    { id: 'rough-energy', name: 'Rough Energy', user: 'Kinji Hakari', type: 'technik', value: 62,
+      tags: ['koerper'],
+      effect: 'Bringt 2 Extra-Spins am Automaten von „Idle Death Gamble“.',
+      art: { kanji: '荒', c1: '#1a0b24', c2: '#f472b6', glyph: 'flash' },
+      short: 'Raue, kantige Fluchkraft, die Barrieren zermürbt.',
+      desc: 'Hakaris Fluchkraft ist rau wie Schmirgelpapier: Sie reibt sich an Barrieren auf und beschädigt sie bei jeder Berührung. Wer sie besitzt, versteht den Automaten seiner Domain besser.' },
   ],
 
   // Feste Kombos: alle Fähigkeiten aus "needs" beim selben Spieler = Bonus
@@ -379,6 +386,8 @@ window.PACKS.jjk = {
       desc: 'Erst alles zerschneiden, dann mit dem Feuerpfeil sprengen.' },
     { id: 'diener', name: 'Treuer Diener', needs: ['frost', 'boeser-schrein'], bonus: 8,
       desc: 'Uraume kämpft an Sukunas Seite.' },
+    { id: 'fieber', name: 'Fieber-Modus', needs: ['idle-death-gamble', 'rough-energy'], bonus: 10,
+      desc: 'Hakari mit Domain und rauer Fluchkraft.' },
     { id: 'jackpot', name: 'Unsterblicher Jackpot', needs: ['idle-death-gamble', 'umgekehrte-technik'], bonus: 14,
       desc: 'Jackpot plus Heilung – praktisch nicht zu besiegen.' },
     { id: 'brueder', name: 'Brüder', needs: ['schwarzer-blitz', 'blutmanipulation'], bonus: 8,
@@ -554,7 +563,11 @@ window.PACKS.jjk = {
     { type: 'debuff', id: 'todesurteil', vsType: 'technik', factor: 0.55, label: 'Deadly Sentencing beschlagnahmt' },
     { type: 'debuff', id: 'fluchsprache', vsType: 'kampf', factor: 0.7, label: 'Cursed Speech stoppt' },
     { type: 'copy', id: 'kopie', vsType: 'technik', share: 0.3, label: 'Copy kopiert' },
-    { type: 'jackpot', id: 'idle-death-gamble', chance: 0.4, bonus: 45, energyBoost: { id: 'hakari-energie', chance: 0.35 } },
+    // Automat vor der Auswertung: nur der Besitzer sieht und dreht ihn
+    { type: 'gamble', id: 'idle-death-gamble', spins: 3, extraSpinsFrom: 'rough-energy', extraSpins: 2,
+      chances: { jackpot: 0.15, reach: 0.17, fever: 0.13 }, energyBoost: { id: 'hakari-energie', jackpot: 0.05 },
+      jackpotAbilityBoost: 0.10, jackpotEnergyMult: 2, jackpotFoeEnergyMult: 0.8, jackpotDomainMult: 2,
+      reachBoost: 0.05, feverBoost: 0.25, missPenalty: 0.05 },
     { type: 'shield', id: 'boogie-woogie', factor: 0.5, label: 'Boogie Woogie weicht aus' },
     { type: 'heal', id: 'umgekehrte-technik', factor: 0.5, label: 'Reverse Cursed Technique heilt' },
   ],
@@ -596,7 +609,7 @@ window.PACKS.jjk = {
       desc: 'Als Sukunas Gefäß hat Yuji überraschend viel Fluchkraft. Die Kontrolle wird mit jedem Schwarzen Blitz besser.' },
     { id: 'hakari-energie', name: "Hakari's Cursed Energy", user: 'Kinji Hakari', type: 'energy', amount: 70, control: 0.45,
       art: { kanji: '賭', c1: '#1a0b24', c2: '#ec4899', glyph: 'dice' },
-      short: 'Heiße Fluchkraft – erhöht die Chance auf den Jackpot.',
+      short: 'Heiße Fluchkraft – erhöht die Jackpot-Chance am Automaten.',
       desc: 'Hakaris Fluchkraft brennt wie ein Spieler im Glücksrausch. Zusammen mit „Idle Death Gamble“ steigt die Chance auf den Jackpot deutlich.' },
     { id: 'megumi-energie', name: "Megumi's Cursed Energy", user: 'Megumi Fushiguro', type: 'energy', amount: 66, control: 0.65,
       art: { kanji: '影', c1: '#05080f', c2: '#94a3b8', glyph: 'shadow' },

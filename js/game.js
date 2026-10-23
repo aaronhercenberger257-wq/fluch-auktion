@@ -6,6 +6,7 @@
 //         → [intermission → auction (Fluchkraft)]      Zusatzmodus „Fluchkraft-Runde“
 //         → [final]  Binding Vow / Ausrüstung wählen
 //         → [seal]   Prison Realm: Gegner schlägt 2 Fähigkeiten vor, Besitzer versiegelt eine
+//         → [gamble] Idle Death Gamble: der Besitzer dreht bis zu 3× (+2 mit Rough Energy) am Automaten
 //         → result
 
 (function (root) {
@@ -66,6 +67,7 @@
       peek: null,       // { id, seen:[bool,bool], votes:[bool,bool], accepted }
       skipNext: null,   // per Sneak Peek beschlossen: diese Karte wird beim Ziehen übersprungen
       seal: null,       // { by, target, options:[id,id]|null, sealed:id|null }
+      gamble: null,     // { player, spinsLeft, total, spins:[...], last, done, outcome }
       events: [],       // für Meldungen in der Anzeige
       evSeq: 0,
       log: [],
@@ -310,7 +312,35 @@
       }
       if (cand.length === 1) s.seal = { by, target, options: cand, sealed: cand[0] };
     }
-    finishResult(s);
+    afterSeal(s);
+  }
+
+  // Fähigkeiten, die wirklich zählen (nicht geopfert, nicht versiegelt)
+  function countingAbilities(s, p) {
+    const sealed = s.seal && s.seal.target === p ? s.seal.sealed : null;
+    return liveAbilities(s, p).filter((id) => id !== sealed);
+  }
+
+  // Nach dem Siegel: Wer „Idle Death Gamble“ hat, darf am Automaten drehen
+  function afterSeal(s) {
+    const g = (getPack(s).effects || []).find((e) => e.type === 'gamble');
+    const owner = g ? [0, 1].find((p) => countingAbilities(s, p).includes(g.id)) : undefined;
+    if (owner === undefined) return finishResult(s);
+    const extra = countingAbilities(s, owner).includes(g.extraSpinsFrom) ? g.extraSpins : 0;
+    s.gamble = { player: owner, spinsLeft: g.spins + extra, total: g.spins + extra, spins: [], last: null, done: false, outcome: null };
+    s.phase = 'gamble';
+    log(s, `${s.players[owner].name} tritt an den Automaten von Idle Death Gamble!`);
+    event(s, { kind: 'gamblestart', player: owner });
+  }
+
+  function spinOnce(s, g) {
+    const ch = g.chances;
+    const boost = g.energyBoost && s.players[s.gamble.player].energy[0] === g.energyBoost.id ? g.energyBoost.jackpot : 0;
+    const r = Math.random();
+    if (r < ch.jackpot + boost) return 'jackpot';
+    if (r < ch.jackpot + boost + ch.reach) return 'reach';
+    if (r < ch.jackpot + boost + ch.reach + ch.fever) return 'fever';
+    return 'miss';
   }
 
   function finishResult(s) {
@@ -371,7 +401,30 @@
       s.seal.sealed = a.id;
       log(s, `„${s.names[a.id]}“ wurde im Prison Realm versiegelt!`);
       event(s, { kind: 'sealed', player: p, id: a.id });
-      finishResult(s);
+      afterSeal(s);
+      return null;
+    }
+
+    if (a.type === 'spin' || a.type === 'stopSpin' || a.type === 'gambleDone') {
+      const G = s.gamble;
+      if (s.phase !== 'gamble' || !G) return 'Gerade gibt es keinen Automaten.';
+      if (p !== G.player) return 'Nur der Besitzer von Idle Death Gamble darf drehen.';
+      if (a.type === 'gambleDone') { if (!G.done) return 'Erst fertig spielen.'; finishResult(s); return null; }
+      if (G.done) return 'Der Automat ist schon fertig.';
+      if (a.type === 'stopSpin') {
+        G.done = true;
+        G.outcome = G.last === 'reach' || G.last === 'fever' ? G.last : 'none';
+        log(s, `${pl.name} hört am Automaten auf.`);
+        return null;
+      }
+      if (G.spinsLeft < 1) return 'Keine Spins mehr.';
+      const g = (getPack(s).effects || []).find((e) => e.type === 'gamble');
+      const res = spinOnce(s, g);
+      G.spinsLeft--;
+      G.spins.push(res);
+      G.last = res;
+      if (res === 'jackpot') { G.done = true; G.outcome = 'jackpot'; log(s, `🎰 JACKPOT für ${pl.name}!`); }
+      else if (G.spinsLeft === 0) { G.done = true; G.outcome = res; }
       return null;
     }
 
@@ -516,6 +569,23 @@
       lines.push({ kind: 'debuff', label: `${e.label}: ${t.name}${heal ? ' (durch Heilung gemildert)' : ''}`, points: 0 });
     }
 
+    // 4b) Automat von Idle Death Gamble
+    const gm = effects.find((e) => e.type === 'gamble');
+    if (gm && me.gamble === 'jackpot') {
+      list.forEach((a) => { val[a.id] = Math.round(val[a.id] * (1 + gm.jackpotAbilityBoost)); });
+      if (!me.energyMode) list.filter((a) => a.type === 'domain').forEach((a) => { val[a.id] = Math.round(val[a.id] * gm.jackpotDomainMult); });
+      lines.push({ kind: 'jackpot', label: `🎰 JACKPOT! Alle Fähigkeiten stärker${me.energyMode ? ', Fluchkraft verdoppelt' : ', Domains zählen doppelt'}`, points: 0 });
+    } else if (gm && me.gamble === 'reach') {
+      list.forEach((a) => { val[a.id] = Math.round(val[a.id] * (1 + gm.reachBoost)); });
+      lines.push({ kind: 'jackpot', label: 'Trostpreis „Reach“: alle Fähigkeiten etwas stärker', points: 0 });
+    } else if (gm && me.gamble === 'fever' && val[gm.id] !== undefined) {
+      val[gm.id] = Math.round(val[gm.id] * (1 + gm.feverBoost));
+      lines.push({ kind: 'jackpot', label: 'Trostpreis „Fever“: Idle Death Gamble stärker', points: 0 });
+    } else if (gm && me.gamble === 'none') {
+      lines.push({ kind: 'nojackpot', label: 'Automat: rechtzeitig aufgehört – kein Gewinn, keine Strafe', points: 0 });
+    }
+    if (gm && foe.gamble === 'jackpot' && energy) lines.push({ kind: 'debuff', label: 'Gegnerischer Jackpot schwächt deine Fluchkraft', points: 0 });
+
     let base = list.reduce((sum, a) => sum + val[a.id], 0);
 
     // 5) Klassen
@@ -588,15 +658,12 @@
       lines.push({ kind: 'duel', label: `Domain-Duell gewonnen: ${best.name}`, points: pack.domainDuelBonus });
     }
 
-    // 12) Jackpot
-    const jp = effects.find((e) => e.type === 'jackpot' && has(effIds, e.id));
-    if (jp) lines.push(me.jackpot
-      ? { kind: 'jackpot', label: '🎰 JACKPOT! Idle Death Gamble', points: jp.bonus }
-      : { kind: 'nojackpot', label: 'Idle Death Gamble: kein Jackpot diesmal', points: 0 });
-
     // 13) Fluchkraft
     if (energy) {
-      base += Math.round(energy.amount * (pack.energyPointFactor || 0.5));
+      let ePts = energy.amount * (pack.energyPointFactor || 0.5);
+      if (gm && me.gamble === 'jackpot') ePts *= gm.jackpotEnergyMult;
+      if (gm && foe.gamble === 'jackpot') ePts *= gm.jackpotFoeEnergyMult;
+      base += Math.round(ePts);
       lines.push({ kind: 'energy', label: `Fluchkraft: ${energy.name}`, points: 0 });
       const hungry = list.filter((a) => a.hungry);
       if (hungry.length && energy.amount > 0)
@@ -608,7 +675,12 @@
         lines.push({ kind: 'energy', label: energy.special.label, points: energy.special.bonus });
     }
 
-    const bonus = lines.reduce((sum, l) => sum + l.points, 0);
+    let bonus = lines.reduce((sum, l) => sum + l.points, 0);
+    if (gm && me.gamble === 'miss') {
+      const minus = Math.round((base + bonus) * gm.missPenalty);
+      lines.push({ kind: 'debuff', label: 'Automat: alle Spins verloren – alles etwas schwächer', points: -minus });
+      bonus -= minus;
+    }
     return { base, lines, bonus, weakened, total: base + bonus };
   }
 
@@ -618,28 +690,22 @@
     return {
       abilities: pl.slots, sacrifice: ch.sacrifice || null, target: ch.target || null,
       sealed: s.seal && s.seal.target === p && s.seal.sealed ? [s.seal.sealed] : [],
-      equip: ch.equipUse || [], energy: pl.energy[0] || null, jackpot: false,
+      equip: ch.equipUse || [], energy: pl.energy[0] || null, energyMode: !!s.energyMode,
+      gamble: s.gamble && s.gamble.player === p ? s.gamble.outcome : null,
     };
   }
 
   function computeResult(s, pack, rnd) {
     rnd = rnd || Math.random;
     const sides = [sideOf(s, 0), sideOf(s, 1)];
-    // Jackpot einmal würfeln (der Host rechnet, der Gast bekommt das Ergebnis)
-    const jp = (pack.effects || []).find((e) => e.type === 'jackpot');
-    sides.forEach((side) => {
-      if (!jp || !effIdsOf(side).includes(jp.id)) return;
-      const chance = jp.chance + (jp.energyBoost && side.energy === jp.energyBoost.id ? jp.energyBoost.chance : 0);
-      side.jackpot = rnd() < chance;
-    });
     const r = [score(pack, sides[0], sides[1]), score(pack, sides[1], sides[0])];
     const winner = r[0].total === r[1].total ? -1 : r[0].total > r[1].total ? 0 : 1;
-    s.result = { scores: r, winner, jackpot: sides.map((x) => x.jackpot) };
+    s.result = { scores: r, winner, gamble: sides.map((x) => x.gamble) };
     return s.result;
   }
 
   const api = {
-    SLOTS, BUDGET, SKIP_MAX_BID, skipBlocked, setBoosts, equipAllowed, liveAbilities, newGame, startAuction, startStage,
+    SLOTS, BUDGET, SKIP_MAX_BID, skipBlocked, setBoosts, equipAllowed, liveAbilities, countingAbilities, newGame, startAuction, startStage,
     act, isActive, canBid, canOverbid, soloPhase, stageSlots, score, computeResult,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

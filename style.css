@@ -389,6 +389,36 @@ details.desc p.needs.fits { color: #5eead4; }
 .bonus-line.jp { color: var(--gold); font-weight: 800; }
 .bad-title { margin-top: 12px; color: #fda4af; }
 
+/* ───── Automat ───── */
+.gamble-box { border-color: rgba(236, 72, 153, .55); box-shadow: 0 0 60px rgba(236, 72, 153, .2); }
+.slot-lights { height: 10px; border-radius: 999px; margin: -4px auto 14px; max-width: 280px;
+  background: repeating-linear-gradient(90deg, #f472b6 0 10px, #fbbf24 10px 20px, #38bdf8 20px 30px); animation: lights 1s linear infinite; opacity: .8; }
+.slot-lights.win { animation-duration: .25s; box-shadow: 0 0 30px #fbbf24; }
+@keyframes lights { to { background-position: 30px 0; } }
+.machine { margin: 16px auto; max-width: 340px; padding: 14px; border-radius: 22px; background: linear-gradient(180deg, #3b0a2a, #12030d);
+  border: 3px solid #f472b6; box-shadow: inset 0 0 30px rgba(0, 0, 0, .7), 0 0 30px rgba(244, 114, 182, .35); }
+.reels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.reel { height: 92px; border-radius: 12px; background: linear-gradient(180deg, #fff 0%, #f1f5f9 45%, #cbd5e1 100%); display: grid; place-items: center;
+  font-size: 48px; font-weight: 900; color: #b91c1c; font-family: var(--display); box-shadow: inset 0 6px 12px rgba(0, 0, 0, .35); overflow: hidden; }
+.reel.spinning span { filter: blur(2px); animation: jiggle .07s linear infinite; }
+.reel.stop span { animation: land .35s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes jiggle { 50% { transform: translateY(6px); } }
+@keyframes land { from { transform: translateY(-30px); } }
+.spin-log { display: flex; justify-content: center; gap: 8px; margin: 6px 0 12px; }
+.pip { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800;
+  border: 2px dashed var(--line-strong); color: var(--muted); }
+.pip.jackpot { background: var(--gold); color: #1a1205; border: 0; }
+.pip.reach, .pip.fever { background: #f472b6; color: #fff; border: 0; }
+.pip.miss { background: rgba(255, 255, 255, .1); border: 0; }
+.gamble-info { text-align: left; padding: 10px 14px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); margin-bottom: 12px; }
+.gamble-info p { margin: 4px 0 0; font-size: 14px; }
+.gamble-info.jackpot { border-color: var(--gold); background: rgba(251, 191, 36, .12); }
+.gamble-info.jackpot b { color: var(--gold); font-size: 22px; }
+.gamble-info.reach, .gamble-info.fever { border-color: #f472b6; }
+.gamble-res { font-weight: 800; font-size: 17px; }
+.gamble-res.jackpot { color: var(--gold); font-size: 24px; }
+.gamble-res.miss { color: #fda4af; }
+
 /* ───── Modal & Toast ───── */
 .modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .7); backdrop-filter: blur(4px); }
 .modal[hidden] { display: none; }
