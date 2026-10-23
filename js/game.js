@@ -6,6 +6,7 @@
 //         → [intermission → auction (Fluchkraft)]      Zusatzmodus „Fluchkraft-Runde“
 //         → [final]  Binding Vow / Ausrüstung wählen
 //         → [seal]   Prison Realm: Gegner schlägt 2 Fähigkeiten vor, Besitzer versiegelt eine
+//         → [ritual] Mahoraga ohne Ten Shadows: beschwören (Kampf) oder nicht (halbe Punkte)
 //         → [gamble] Idle Death Gamble: der Besitzer dreht bis zu 3× (+2 mit Rough Energy) am Automaten
 //         → [clash]  Domain Clash: haben beide eine Domain, entscheidet ein Timing-Duell (5 Runden)
 //         → result
@@ -70,6 +71,7 @@
       skipNext: null,   // per Sneak Peek beschlossen: diese Karte wird beim Ziehen übersprungen
       seal: null,       // { by, target, options:[id,id]|null, sealed:id|null }
       gamble: null,     // { player, spinsLeft, total, spins:[...], last, done, outcome }
+      ritual: null,     // Mahoraga-Beschwörung: { player, chance, decided, summon, success, done }
       clash: null,      // Domain Clash: { domains, zone, perfect, flashPts, hitMult, hits:[[],[]], points, done, winner }
       events: [],       // für Meldungen in der Anzeige
       evSeq: 0,
@@ -333,8 +335,31 @@
     return liveAbilities(s, p).filter((id) => id !== sealed);
   }
 
-  // Nach dem Siegel: Wer „Idle Death Gamble“ hat, darf am Automaten drehen
+  // ───────── Mahoraga-Ritual ─────────
+  const RITUAL = { id: 'mahoraga', without: 'zehn-schatten', loseNerf: 0.15 };
+
+  function ritualChance(s, p) {
+    // Nur die Grundwerte der eigenen anderen Fähigkeiten zählen – keine Effekte, keine Nerfs
+    const pack = getPack(s);
+    const sum = countingAbilities(s, p).filter((id) => id !== RITUAL.id)
+      .reduce((t, id) => t + pack.abilities.find((a) => a.id === id).value, 0);
+    return Math.round(Math.max(0.1, Math.min(0.9, (sum - 120) / 240)) * 100) / 100;
+  }
+
   function afterSeal(s) {
+    const owner = [0, 1].find((p) => countingAbilities(s, p).includes(RITUAL.id) && !countingAbilities(s, p).includes(RITUAL.without));
+    if (owner !== undefined) {
+      s.ritual = { player: owner, chance: ritualChance(s, owner), decided: false, summon: null, success: null, done: false };
+      s.phase = 'ritual';
+      log(s, `${s.players[owner].name} steht vor der Wahl: Mahoraga beschwören?`);
+      event(s, { kind: 'ritualstart', player: owner });
+      return;
+    }
+    startGamble(s);
+  }
+
+  // Wer „Idle Death Gamble“ hat, darf am Automaten drehen
+  function startGamble(s) {
     const g = (getPack(s).effects || []).find((e) => e.type === 'gamble');
     const owner = g ? [0, 1].find((p) => countingAbilities(s, p).includes(g.id)) : undefined;
     if (owner === undefined) return afterGamble(s);
@@ -479,6 +504,26 @@
       log(s, `„${s.names[a.id]}“ wurde im Prison Realm versiegelt!`);
       event(s, { kind: 'sealed', player: p, id: a.id });
       afterSeal(s);
+      return null;
+    }
+
+    if (a.type === 'ritual' || a.type === 'ritualDone') {
+      const R = s.ritual;
+      if (s.phase !== 'ritual' || !R) return 'Gerade gibt es keine Beschwörung.';
+      if (a.type === 'ritualDone') { if (!R.decided) return 'Erst entscheiden.'; R.done = true; startGamble(s); return null; }
+      if (p !== R.player) return 'Nur der Besitzer von Mahoraga entscheidet.';
+      if (R.decided) return 'Schon entschieden.';
+      R.decided = true;
+      R.summon = !!a.summon;
+      if (!R.summon) {
+        log(s, `${pl.name} beschwört Mahoraga nicht – er zählt nur halb.`);
+        R.done = true;
+        startGamble(s);
+        return null;
+      }
+      R.success = Math.random() < R.chance;
+      log(s, R.success ? `${pl.name} bezwingt Mahoraga!` : `Mahoraga schlägt ${pl.name} weg!`);
+      event(s, { kind: R.success ? 'ritualwin' : 'rituallose', player: p });
       return null;
     }
 
@@ -632,6 +677,24 @@
       if (b.weak) {
         weakened.push(a.id);
         if (b.healed > 0) lines.push({ kind: 'energy', label: `${energy.name} gleicht die Schwäche von ${a.name} aus`, points: 0 });
+      }
+    }
+
+    // 1b) Mahoraga-Ritual
+    if (me.ritual && val.mahoraga !== undefined) {
+      const full = byId.mahoraga.value;
+      const wi = weakened.indexOf('mahoraga');
+      if (wi >= 0) weakened.splice(wi, 1);
+      if (me.ritual === 'win') {
+        val.mahoraga = full;
+        lines.push({ kind: 'combo', label: 'Mahoraga bezwungen – er kämpft für dich', points: 0 });
+      } else if (me.ritual === 'skip') {
+        val.mahoraga = Math.round(full / 2);
+        lines.push({ kind: 'nojackpot', label: 'Mahoraga nicht beschworen – zählt nur halb', points: 0 });
+      } else if (me.ritual === 'lose') {
+        val.mahoraga = 0;
+        list.forEach((a) => { if (a.id !== 'mahoraga') val[a.id] = Math.round(val[a.id] * (1 - 0.15)); });
+        lines.push({ kind: 'debuff', label: 'Mahoraga hat dich weggeschlagen – alle Fähigkeiten geschwächt', points: 0 });
       }
     }
 
@@ -798,6 +861,7 @@
       sealed: s.seal && s.seal.target === p && s.seal.sealed ? [s.seal.sealed] : [],
       equip: ch.equipUse || [], energy: pl.energy[0] || null, energyMode: !!s.energyMode,
       gamble: s.gamble && s.gamble.player === p ? s.gamble.outcome : null,
+      ritual: s.ritual && s.ritual.player === p ? (!s.ritual.summon ? 'skip' : s.ritual.success ? 'win' : 'lose') : null,
       clash: s.clash && s.clash.done ? (s.clash.winner === p ? 'win' : 'lose') : null,
       clashDomain: s.clash ? s.clash.domains[p] : null,
       clashHalved: !!(s.clash && s.clash.guarded[1 - p]),

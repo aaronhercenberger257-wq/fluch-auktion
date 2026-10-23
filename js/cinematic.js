@@ -196,9 +196,14 @@
 
   // ───────── 3D-Videos (in Blender gerendert, siehe Ordner blender/) ─────────
   // Zeiten in Sekunden: wann welche Schrift über dem Video erscheint
-  const VIDEOS = {
-    'unendliche-leere': { src: 'video/void.mp4', cues: [['s3', 2.6], ['s4', 4.6], ['s5', 5.8], ['s7', 10.3]] },
-  };
+  // Alle Videos folgen derselben Dramaturgie (blender/scenes.py) → gleiche Schrift-Zeitpunkte
+  const CUES = [['s3', 2.6], ['s4', 4.6], ['s5', 5.8], ['s7', 10.3]];
+  const VIDEOS = {};
+  Object.entries({
+    'unendliche-leere': 'void', 'boeser-schrein': 'shrine', 'chimaera-garten': 'shadow', 'selbstverkoerperung': 'hands',
+    'sarg-eisenberg': 'volcano', 'todesurteil': 'court', 'idle-death-gamble': 'gamble', 'authentische-liebe': 'swords',
+    'skandha': 'beach', 'zeitzellen-palast': 'frames',
+  }).forEach(([dom, file]) => { VIDEOS[dom] = { src: 'video/' + file + '.mp4', cues: CUES }; });
 
   function playVideo(container, o, v, onDone) {
     const D = DOMAINS[o.winnerDomain];
@@ -229,11 +234,31 @@
     return { stop: finish };
   }
 
+  // Kurzer Clip (z. B. Mahoraga-Beschwörung) mit Titel am Ende
+  function playClip(container, o, onDone) {
+    container.innerHTML = `<div class="cine vid clip" style="--wa:${o.color || '#e5e7eb'}">
+      <video class="cine-video" src="${o.src}" muted playsinline preload="auto"></video>
+      <div class="victory"><b>${o.title}</b><span>${o.sub || ''}</span></div>
+      <button class="cine-skip" type="button">Überspringen ⏭</button>
+    </div>`;
+    const cine = container.querySelector('.cine');
+    const video = cine.querySelector('video');
+    let finished = false;
+    const finish = () => { if (finished) return; finished = true; video.pause(); onDone && onDone(); };
+    video.addEventListener('timeupdate', () => { if (video.duration && video.currentTime > video.duration - 2.2) cine.classList.add('s7'); });
+    video.addEventListener('ended', () => setTimeout(finish, 1200));
+    video.addEventListener('error', () => setTimeout(finish, 300));
+    const p = video.play();
+    if (p && p.catch) p.catch(() => setTimeout(finish, 300));
+    cine.querySelector('.cine-skip').onclick = finish;
+    return { stop: finish };
+  }
+
   // Video, falls vorhanden – sonst die gezeichnete Animation
   function playBest(container, o, onDone) {
     const v = VIDEOS[o.winnerDomain];
     return v ? playVideo(container, o, v, onDone) : play(container, o, onDone);
   }
 
-  window.Cinematic = { play: playBest, playDrawn: play, DOMAINS, CHARS, figureSVG, VIDEOS };
+  window.Cinematic = { play: playBest, playDrawn: play, playClip, DOMAINS, CHARS, figureSVG, VIDEOS };
 })();

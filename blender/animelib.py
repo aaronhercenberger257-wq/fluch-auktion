@@ -433,6 +433,8 @@ def sun(strength=3.0, rot=(math.radians(50), math.radians(10), math.radians(-30)
     d = bpy.data.lights.new('Sun', 'SUN')
     d.energy = strength
     d.color = color
+    d.angle = 0.0
+    d.use_shadow = False  # sauberer Cel-Look: Schattierung nur über die Toon-Stufen
     o = bpy.data.objects.new('Sun', d)
     bpy.context.collection.objects.link(o)
     o.rotation_euler = rot

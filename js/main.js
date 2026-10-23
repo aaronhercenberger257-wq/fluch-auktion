@@ -211,6 +211,13 @@
 
   function broadcast() {
     net.send({ t: 'state', state });
+    // Host: nach der Mahoraga-Animation automatisch weiter (falls keiner klickt)
+    if (state.phase === 'ritual' && state.ritual && state.ritual.decided && !ui.ritualTimer) {
+      ui.ritualTimer = setTimeout(() => {
+        ui.ritualTimer = null;
+        if (state.phase === 'ritual') { Game.act(state, 0, { type: 'ritualDone' }); broadcast(); }
+      }, 15000);
+    }
     // Host: nach dem Domain Clash automatisch weiter (falls keiner klickt)
     if (state.phase === 'clash' && state.clash && state.clash.done && !ui.clashTimer) {
       ui.clashTimer = setTimeout(() => {
@@ -280,6 +287,7 @@
     else if (state.phase === 'seal') renderSeal();
     else if (state.phase === 'gamble') { if (!ui.spinning) renderGamble(); }
     else if (state.phase === 'clash') renderClash();
+    else if (state.phase === 'ritual') renderRitual();
     else if (state.phase === 'result') renderResult();
   }
 
@@ -295,6 +303,9 @@
       if (ev.kind === 'peekskip') return `${nm} wurde nach dem Sneak Peek übersprungen`;
       if (ev.kind === 'peek' && ev.player !== me) return `${who} hat Sneak Peek benutzt 👀`;
       if (ev.kind === 'sealstart') return ev.player === me ? 'Prison Realm öffnet sich …' : `${who} öffnet Prison Realm! 🧊`;
+      if (ev.kind === 'ritualstart') return ev.player === me ? 'Mahoraga wartet auf deine Entscheidung …' : `${who} überlegt, Mahoraga zu beschwören …`;
+      if (ev.kind === 'ritualwin') return ev.player === me ? 'Du hast Mahoraga bezwungen!' : `${who} hat Mahoraga bezwungen!`;
+      if (ev.kind === 'rituallose') return ev.player === me ? 'Mahoraga hat dich weggeschlagen!' : `Mahoraga hat ${who} weggeschlagen!`;
       if (ev.kind === 'clashstart') return 'DOMAIN CLASH! ⚔';
       if (ev.kind === 'clashwin') return ev.player === me ? 'Du gewinnst den Domain Clash!' : `${who} gewinnt den Domain Clash!`;
       if (ev.kind === 'gamblestart') return ev.player === me ? 'Der Automat von Idle Death Gamble wartet auf dich 🎰' : `${who} tritt an den Automaten 🎰`;
@@ -589,6 +600,49 @@
       <div class="inter-bar"><span></span></div>
     </div>`;
     ui.slotCounts = [0, 1].map((p) => state.players[p].slots.length).concat([0, 1].map((p) => state.players[p].equip.length));
+  }
+
+  // ───────── Mahoraga-Beschwörung ─────────
+  function renderRitual() {
+    const R = state.ritual;
+    const owner = state.players[R.player];
+    const mine = R.player === me;
+    const card = item('mahoraga');
+    if (R.decided && R.summon && ui.ritualShown !== state.gameId) {
+      // Beide sehen die Animation
+      ui.ritualShown = state.gameId;
+      const layer = document.createElement('div');
+      document.body.appendChild(layer);
+      const who = mine ? 'Du' : esc(owner.name);
+      Cinematic.playClip(layer, {
+        src: R.success ? 'video/mahoraga_win.mp4' : 'video/mahoraga_lose.mp4',
+        title: R.success ? 'BEZWUNGEN!' : 'WEGGESCHLAGEN!',
+        sub: R.success ? `${who} ${mine ? 'hast' : 'hat'} Mahoraga besiegt – er kämpft jetzt mit voller Kraft.` : `Mahoraga hat ${mine ? 'dich' : esc(owner.name)} weggeschlagen.`,
+        color: R.success ? '#fbbf24' : '#e5e7eb',
+      }, () => { layer.remove(); ui.ritualDone = state.gameId; if (state.phase === 'ritual') renderRitual(); });
+    }
+    let body;
+    if (!R.decided && mine) {
+      body = `<p>Du hast <b>${esc(card.name)}</b>, aber <b>nicht „Ten Shadows“</b>. Was tust du?</p>
+        <div class="ritual-choices">
+          <button class="ritual-btn summon" data-action="ritual-summon"><b>Beschwören</b>
+            <span>Kampf gegen Mahoraga. Gewinnst du, zählt er <b>voll</b>. Verlierst du, schlägt er dich weg: Er zählt <b>gar nicht</b> und alle deine Fähigkeiten werden schwächer.</span>
+            <em>Siegchance ca. ${Math.round(R.chance * 100)} %</em></button>
+          <button class="ritual-btn skip" data-action="ritual-skip"><b>Nicht beschwören</b>
+            <span>Sicher, aber Mahoraga zählt nur die <b>Hälfte</b>.</span></button>
+        </div>
+        <p class="hint">Die Siegchance hängt nur von den Grundwerten deiner anderen Fähigkeiten ab – keine Effekte, keine Nerfs.</p>`;
+    } else if (!R.decided) {
+      body = `<p>${esc(owner.name)} überlegt, ob er <b>Mahoraga</b> beschwört …</p><div class="inter-bar wait"><span></span></div>`;
+    } else if (ui.ritualDone === state.gameId) {
+      body = `<p class="gamble-res ${R.success ? 'jackpot' : 'miss'}">${R.success ? 'Mahoraga wurde bezwungen!' : 'Mahoraga hat zugeschlagen …'}</p>
+        <button class="btn btn-primary btn-big" data-action="ritual-done">Weiter</button>`;
+    } else {
+      body = '<p>Die Beschwörung läuft …</p>';
+    }
+    $('#game').innerHTML = `<div class="final"><div class="seal-box ritual-box">
+      <div class="seal-cube">${art(card, 'mh')}</div>
+      <h2 class="final-title">Mahoraga</h2>${body}</div></div>`;
   }
 
   // ───────── Domain Clash (Sure-Hit-Timing) ─────────
@@ -986,6 +1040,7 @@
       <li>Leere Slots werden am Ende <b>zufällig</b> gefüllt.</li>
       <li>✦ <b>Spezial-Effekte</b>: Manche Karten wirken direkt auf den Gegner – z. B. <b>Deadly Sentencing</b> beschlagnahmt seine stärkste Fluchtechnik, <b>Cursed Speech</b> stoppt seinen stärksten Kampfskill, <b>Copy</b> kopiert einen Teil seiner stärksten Technik, <b>Boogie Woogie</b> weicht seinem stärksten Konter aus, <b>Reverse Cursed Technique</b> heilt Schwächungen, <b>Idle Death Gamble</b> lässt dich vor der Auswertung am Automaten drehen (siehe unten). Mehrere Karten desselben Charakters (Gojo, Sukuna, Yuta, Megumi …) verstärken sich gegenseitig.</li>
       <li>🎰 <b>Idle Death Gamble – Automat</b>: Wer die Karte hat, darf vor der Auswertung bis zu 3-mal drehen (mit „Rough Energy“ 5-mal) – nur er sieht den Automaten. Nach jedem Spin entscheidest du: weiter oder aufhören. <b>Jackpot</b> (ca. 15 %): alle Fähigkeiten stärker, deine Fluchkraft doppelt, die des Gegners etwas schwächer – ohne Fluchkraft-Runde zählen deine Domains doppelt. <b>Trostpreise</b> „Reach“ und „Fever“ geben kleine Boni, wenn du danach aufhörst. Hörst du bei „nichts“ auf, passiert nichts – sind aber alle Spins weg und der letzte war eine Niete, wird alles 5 % schwächer.</li>
+      <li>☸ <b>Mahoraga</b>: Hast du „Summon Mahoraga“ ohne „Ten Shadows“, entscheidest du vor der Auswertung: <b>beschwören</b> (Kampf – Sieg: er zählt voll; Niederlage: er schlägt dich weg, zählt nicht und schwächt alle deine Fähigkeiten) oder <b>nicht beschwören</b> (er zählt nur halb). Die Siegchance hängt nur von den Grundwerten deiner anderen Fähigkeiten ab.</li>
       <li>⚔ <b>Domain Clash</b>: Haben beide eine Domain, kommt es vor der Auswertung zum Duell. 5 Runden lang saust ein Zeiger über einen Balken – drück, wenn er in deiner <b>Sure-Hit-Zone</b> ist. Je stärker deine Domain und je besser dein Team zu ihr passt, desto größer deine Zone. Genau in der Mitte gibt es einen <b>BLACK FLASH</b> (mit der Fähigkeit „Black Flash“ noch stärker). Simple Domain beim Gegner macht deine Treffer schwächer. Der Sieger bekommt Boni auf alle Fähigkeiten und besonders auf seine Domain.</li>
       <li>🧊 <b>Prison Realm</b> (Ausrüstung): Dein Gegner schlägt 2 seiner Fähigkeiten vor – du versiegelst eine davon, sie zählt dann nicht.</li>
       <li>🔥 <b>Zusatzmodus Fluchkraft-Runde</b>: Zum Schluss bietet ihr mit dem Restgeld um die Fluchkraft eines Charakters (nur eine pro Spieler). Viel <b>Menge</b> bringt Punkte und hilft energiehungrigen Fähigkeiten, gute <b>Kontrolle</b> gleicht Schwächen aus. Gojos Fluchkraft ist riesig – aber ohne Six Eyes schlecht kontrolliert.</li>
@@ -1036,6 +1091,10 @@
       if (ui.sealPick.includes(id)) ui.sealPick = ui.sealPick.filter((x) => x !== id);
       else { ui.sealPick.push(id); if (ui.sealPick.length > 2) ui.sealPick.shift(); }
       renderSeal();
+    } else if (act === 'ritual-summon' || act === 'ritual-skip') {
+      doAction({ type: 'ritual', summon: act === 'ritual-summon' });
+    } else if (act === 'ritual-done') {
+      doAction({ type: 'ritualDone' });
     } else if (act === 'clash-hit') {
       clashPress(false);
     } else if (act === 'clash-done') {
@@ -1077,6 +1136,6 @@
   }
 
   window.addEventListener('beforeunload', (e) => {
-    if (state && ['auction', 'intermission', 'final', 'seal', 'gamble', 'clash'].includes(state.phase)) { e.preventDefault(); e.returnValue = ''; }
+    if (state && ['auction', 'intermission', 'final', 'seal', 'ritual', 'gamble', 'clash'].includes(state.phase)) { e.preventDefault(); e.returnValue = ''; }
   });
 })();

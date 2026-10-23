@@ -506,6 +506,19 @@ details.desc p.needs.fits { color: #5eead4; }
   .clash-label b { font-size: 16px; }
 }
 
+/* ───── Mahoraga ───── */
+.ritual-box { border-color: rgba(229, 231, 235, .5); box-shadow: 0 0 60px rgba(229, 231, 235, .15); }
+.ritual-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
+.ritual-btn { display: grid; gap: 6px; text-align: left; padding: 14px; border-radius: 16px; cursor: pointer; font: inherit; color: inherit;
+  background: rgba(0, 0, 0, .35); border: 2px solid var(--line-strong); transition: transform .15s, border-color .15s; }
+.ritual-btn:hover { transform: translateY(-2px); }
+.ritual-btn b { font-family: var(--display); font-weight: 400; font-size: 26px; }
+.ritual-btn span { font-size: 13.5px; line-height: 1.45; color: #d6d0e4; }
+.ritual-btn em { font-style: normal; font-weight: 800; color: var(--gold); }
+.ritual-btn.summon { border-color: rgba(251, 191, 36, .6); }
+.ritual-btn.skip { border-color: rgba(148, 163, 184, .5); }
+@media (max-width: 600px) { .ritual-choices { grid-template-columns: 1fr; } }
+
 /* ───── Modal & Toast ───── */
 .modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .7); backdrop-filter: blur(4px); }
 .modal[hidden] { display: none; }
