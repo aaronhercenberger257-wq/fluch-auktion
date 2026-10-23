@@ -211,6 +211,13 @@
 
   function broadcast() {
     net.send({ t: 'state', state });
+    // Host: nach dem Domain Clash automatisch weiter (falls keiner klickt)
+    if (state.phase === 'clash' && state.clash && state.clash.done && !ui.clashTimer) {
+      ui.clashTimer = setTimeout(() => {
+        ui.clashTimer = null;
+        if (state.phase === 'clash') { Game.act(state, 0, { type: 'clashDone' }); broadcast(); }
+      }, 9000);
+    }
     // Host: nach der Pause die Ausrüstungs-Runde starten
     if (state.phase === 'intermission' && !ui.stageTimer) {
       ui.stageTimer = setTimeout(() => {
@@ -272,6 +279,7 @@
     else if (state.phase === 'final') renderFinal();
     else if (state.phase === 'seal') renderSeal();
     else if (state.phase === 'gamble') { if (!ui.spinning) renderGamble(); }
+    else if (state.phase === 'clash') renderClash();
     else if (state.phase === 'result') renderResult();
   }
 
@@ -287,6 +295,8 @@
       if (ev.kind === 'peekskip') return `${nm} wurde nach dem Sneak Peek übersprungen`;
       if (ev.kind === 'peek' && ev.player !== me) return `${who} hat Sneak Peek benutzt 👀`;
       if (ev.kind === 'sealstart') return ev.player === me ? 'Prison Realm öffnet sich …' : `${who} öffnet Prison Realm! 🧊`;
+      if (ev.kind === 'clashstart') return 'DOMAIN CLASH! ⚔';
+      if (ev.kind === 'clashwin') return ev.player === me ? 'Du gewinnst den Domain Clash!' : `${who} gewinnt den Domain Clash!`;
       if (ev.kind === 'gamblestart') return ev.player === me ? 'Der Automat von Idle Death Gamble wartet auf dich 🎰' : `${who} tritt an den Automaten 🎰`;
       if (ev.kind === 'sealed') return `${nm} wurde versiegelt 🔒`;
       return null;
@@ -576,6 +586,131 @@
     ui.slotCounts = [0, 1].map((p) => state.players[p].slots.length).concat([0, 1].map((p) => state.players[p].equip.length));
   }
 
+  // ───────── Domain Clash (Sure-Hit-Timing) ─────────
+  const CLASH_THEME = { void: 'stars', shrine: 'slash', shadow: 'shadow', hands: 'hands', volcano: 'ember', scale: 'gavel',
+    dice: 'dice', heart: 'swords', wave: 'bubble', clock: 'frames' };
+  const themeOf = (id) => CLASH_THEME[item(id).art.glyph] || 'stars';
+
+  function particles(theme, n) {
+    return Array.from({ length: n }, (_, i) => {
+      const x = Math.round(Math.random() * 100), d = (Math.random() * 3).toFixed(2), sz = 6 + Math.round(Math.random() * 14);
+      return `<i class="pt pt-${theme}" style="left:${x}%;top:${Math.round(Math.random() * 100)}%;animation-delay:-${d}s;--sz:${sz}px"></i>`;
+    }).join('');
+  }
+
+  function clashSide(p, cls) {
+    const id = state.clash.domains[p];
+    const it = item(id);
+    return `<div class="clash-side ${cls} theme-${themeOf(id)}" style="--c2:${it.art.c2};--c1:${it.art.c1}">
+      <div class="clash-fx">${particles(themeOf(id), 26)}</div>
+      <div class="clash-art">${art(it, 'cl' + p)}</div>
+      <div class="clash-label"><b>${esc(it.name)}</b><span>${esc(state.players[p].name)}${p === me ? ' (Du)' : ''}</span></div>
+    </div>`;
+  }
+
+  function renderClash() {
+    const c = state.clash;
+    if (!document.getElementById('clash') || ui.clashGame !== state.gameId) {
+      ui.clashGame = state.gameId;
+      ui.clash = { round: c.hits[me].length, raf: null, locked: true, timer: null };
+      $('#game').innerHTML = `<div id="clash" class="clash">
+        <div class="clash-scene intro">
+          ${clashSide(me, 'left')}${clashSide(foe(), 'right')}
+          <div class="clash-flash"></div>
+          <h2 class="clash-title">DOMAIN CLASH</h2>
+        </div>
+        <div class="tug"><span class="tug-me"></span><b class="tug-txt"></b></div>
+        <div class="panel clash-play">
+          <div class="clash-round"></div>
+          <div class="sh-bar"><div class="sh-zone"><div class="sh-perfect"></div></div><div class="sh-needle"></div></div>
+          <p class="clash-fb">&nbsp;</p>
+          <button class="btn btn-primary btn-big sh-btn" data-action="clash-hit" disabled>TREFFEN!</button>
+          <p class="hint">Drück, wenn der Zeiger in deiner <b>Sure-Hit-Zone</b> ist – genau in der Mitte gibt es einen <b>BLACK FLASH</b>${c.blackFlash[me] ? ' (mit deinem „Black Flash“ besonders stark!)' : ''}. Leertaste geht auch.
+            ${c.guarded[foe()] ? `<br>⚠ ${esc(state.players[foe()].name)} schützt sich mit Simple Domain – deine Treffer zählen weniger.` : ''}</p>
+          <div class="clash-pips"><div><small>Du</small><span id="pips-me"></span></div><div><small>${esc(state.players[foe()].name)}</small><span id="pips-foe"></span></div></div>
+        </div>
+        <div class="clash-end"></div>
+      </div>`;
+      const half = c.zone[me] / 2;
+      $('.sh-zone').style.width = (c.zone[me] * 100) + '%';
+      $('.sh-perfect').style.width = ((c.perfect[me] / c.zone[me]) * 100) + '%';
+      ui.clash.half = half;
+      setTimeout(() => { const sc = $('.clash-scene'); if (sc) sc.classList.remove('intro'); startClashRound(); }, 2600);
+    }
+    updateClash();
+  }
+
+  function updateClash() {
+    const c = state.clash;
+    if (!$('#clash')) return;
+    const a = c.points[me], b = c.points[foe()];
+    const share = a + b ? (a / (a + b)) * 100 : 50;
+    $('.tug-me').style.width = share + '%';
+    $('.tug-txt').textContent = `${a} : ${b}`;
+    const pip = (h) => `<i class="cp ${h.kind}">${h.kind === 'flash' ? '⚡' : h.kind === 'hit' ? '●' : '×'}</i>`;
+    const rest = (n) => Array.from({ length: Math.max(0, c.rounds - n) }, () => '<i class="cp"></i>').join('');
+    $('#pips-me').innerHTML = c.hits[me].map(pip).join('') + rest(c.hits[me].length);
+    $('#pips-foe').innerHTML = c.hits[foe()].map(pip).join('') + rest(c.hits[foe()].length);
+    const end = $('.clash-end');
+    if (c.done) {
+      cancelAnimationFrame(ui.clash && ui.clash.raf);
+      const won = c.winner === me;
+      $('.clash-play').classList.add('over');
+      $('#clash').classList.add(won ? 'won' : 'lost');
+      end.innerHTML = `<div class="panel clash-result ${won ? 'won' : 'lost'}">
+        <h2>${won ? 'Du gewinnst den Domain Clash!' : `${esc(state.players[c.winner].name)} gewinnt den Domain Clash!`}</h2>
+        <p>„${esc(item(c.domains[c.winner]).name)}“ setzt sich durch – alle Fähigkeiten des Siegers werden stärker, die Domain besonders${c.guarded[1 - c.winner] ? ' (durch Simple Domain etwas gebremst)' : ''}.</p>
+        <button class="btn btn-primary btn-big" data-action="clash-done">Weiter zur Auswertung</button></div>`;
+    } else if (c.hits[me].length >= c.rounds) {
+      end.innerHTML = `<p class="hint">Du bist fertig – warte auf ${esc(state.players[foe()].name)} …</p>`;
+    }
+  }
+
+  function startClashRound() {
+    const c = state && state.clash;
+    if (!c || state.phase !== 'clash' || !$('#clash')) return;
+    const u = ui.clash;
+    if (u.round >= c.rounds) { $('.clash-round').textContent = 'Fertig!'; $('.sh-btn').disabled = true; return; }
+    const half = u.half;
+    u.center = half + 0.04 + Math.random() * (1 - 2 * half - 0.08);
+    u.speed = 0.55 + u.round * 0.2;   // Zeiger wird jede Runde schneller
+    u.start = performance.now() + Math.random() * 400;
+    u.locked = false;
+    $('.sh-zone').style.left = ((u.center - half) * 100) + '%';
+    $('.clash-round').textContent = `Runde ${u.round + 1} / ${c.rounds}`;
+    $('.sh-btn').disabled = false;
+    const needle = $('.sh-needle');
+    const frame = (t) => {
+      if (u.locked) return;
+      const x = Math.max(0, (t - u.start) / 1000) * u.speed;
+      u.pos = Math.abs((x % 2) - 1);
+      needle.style.left = (u.pos * 100) + '%';
+      u.raf = requestAnimationFrame(frame);
+    };
+    u.raf = requestAnimationFrame(frame);
+    clearTimeout(u.timer);
+    u.timer = setTimeout(() => clashPress(true), 4200); // zu lange gewartet = daneben
+  }
+
+  function clashPress(timeout) {
+    const u = ui.clash;
+    const c = state.clash;
+    if (!u || u.locked || !c) return;
+    u.locked = true;
+    clearTimeout(u.timer);
+    cancelAnimationFrame(u.raf);
+    const offset = timeout ? 1 : Math.abs((u.pos || 0) - u.center);
+    const kind = offset <= c.perfect[me] / 2 ? 'flash' : offset <= u.half ? 'hit' : 'miss';
+    const fb = $('.clash-fb');
+    fb.className = 'clash-fb ' + kind;
+    fb.textContent = kind === 'flash' ? '⚡ BLACK FLASH! ⚡' : kind === 'hit' ? 'Sure Hit!' : timeout ? 'Zu langsam!' : 'Daneben …';
+    if (kind === 'flash') { $('#clash').classList.remove('bf'); void $('#clash').offsetWidth; $('#clash').classList.add('bf'); }
+    $('.sh-btn').disabled = true;
+    doAction({ type: 'clashHit', round: u.round, offset });
+    u.round++;
+    setTimeout(startClashRound, 1000);
+  }
+
   // ───────── Automat von Idle Death Gamble ─────────
   const REEL_SYMBOLS = ['7', '🔔', '🍒', '💎', '🎴', '🀄'];
   const OUTCOME_TEXT = {
@@ -831,8 +966,9 @@
       <li>📜 <b>Binding Vow</b>: eine Spezialkarte für einen Extra-Slot. Vor der Auswertung opferst du eine Fähigkeit – dafür wird eine andere viel stärker.</li>
       <li>🎲 <b>Sets</b>: Hast du schon Karten eines Charakters (z. B. Gojo), kommen weitere Karten von ihm öfter – je mehr du hast, desto öfter. Hat dein Gegner auch welche, steigt die Chance noch mehr. Pro Spieler zählt nur ein Set: das, von dem noch die meisten Karten im Stapel sind.</li>
       <li>Leere Slots werden am Ende <b>zufällig</b> gefüllt.</li>
-      <li>✦ <b>Spezial-Effekte</b>: Manche Karten wirken direkt auf den Gegner – z. B. <b>Deadly Sentencing</b> beschlagnahmt seine stärkste Fluchtechnik, <b>Cursed Speech</b> stoppt seinen stärksten Kampfskill, <b>Copy</b> kopiert einen Teil seiner stärksten Technik, <b>Boogie Woogie</b> weicht seinem stärksten Konter aus, <b>Reverse Cursed Technique</b> heilt Schwächungen, <b>Idle Death Gamble</b> lässt dich vor der Auswertung am Automaten drehen (siehe unten). Haben beide eine Domain, gewinnt die stärkere das <b>Domain-Duell</b>. Mehrere Gojo-Karten verstärken sich gegenseitig.</li>
+      <li>✦ <b>Spezial-Effekte</b>: Manche Karten wirken direkt auf den Gegner – z. B. <b>Deadly Sentencing</b> beschlagnahmt seine stärkste Fluchtechnik, <b>Cursed Speech</b> stoppt seinen stärksten Kampfskill, <b>Copy</b> kopiert einen Teil seiner stärksten Technik, <b>Boogie Woogie</b> weicht seinem stärksten Konter aus, <b>Reverse Cursed Technique</b> heilt Schwächungen, <b>Idle Death Gamble</b> lässt dich vor der Auswertung am Automaten drehen (siehe unten). Mehrere Karten desselben Charakters (Gojo, Sukuna, Yuta, Megumi …) verstärken sich gegenseitig.</li>
       <li>🎰 <b>Idle Death Gamble – Automat</b>: Wer die Karte hat, darf vor der Auswertung bis zu 3-mal drehen (mit „Rough Energy“ 5-mal) – nur er sieht den Automaten. Nach jedem Spin entscheidest du: weiter oder aufhören. <b>Jackpot</b> (ca. 15 %): alle Fähigkeiten stärker, deine Fluchkraft doppelt, die des Gegners etwas schwächer – ohne Fluchkraft-Runde zählen deine Domains doppelt. <b>Trostpreise</b> „Reach“ und „Fever“ geben kleine Boni, wenn du danach aufhörst. Hörst du bei „nichts“ auf, passiert nichts – sind aber alle Spins weg und der letzte war eine Niete, wird alles 5 % schwächer.</li>
+      <li>⚔ <b>Domain Clash</b>: Haben beide eine Domain, kommt es vor der Auswertung zum Duell. 5 Runden lang saust ein Zeiger über einen Balken – drück, wenn er in deiner <b>Sure-Hit-Zone</b> ist. Je stärker deine Domain und je besser dein Team zu ihr passt, desto größer deine Zone. Genau in der Mitte gibt es einen <b>BLACK FLASH</b> (mit der Fähigkeit „Black Flash“ noch stärker). Simple Domain beim Gegner macht deine Treffer schwächer. Der Sieger bekommt Boni auf alle Fähigkeiten und besonders auf seine Domain.</li>
       <li>🧊 <b>Prison Realm</b> (Ausrüstung): Dein Gegner schlägt 2 seiner Fähigkeiten vor – du versiegelst eine davon, sie zählt dann nicht.</li>
       <li>🔥 <b>Zusatzmodus Fluchkraft-Runde</b>: Zum Schluss bietet ihr mit dem Restgeld um die Fluchkraft eines Charakters (nur eine pro Spieler). Viel <b>Menge</b> bringt Punkte und hilft energiehungrigen Fähigkeiten, gute <b>Kontrolle</b> gleicht Schwächen aus. Gojos Fluchkraft ist riesig – aber ohne Six Eyes schlecht kontrolliert.</li>
       <li><b>Modus „Mit Ausrüstung“</b>: Nach den Fähigkeiten wird dein Restgeld verdoppelt und ihr ersteigert 3 Ausrüstungen (Waffen, verfluchte Werkzeuge). Am Ende zählen 2 – mit der Spezialkarte <b>Inventory Curse</b> alle 3. Viele Ausrüstungen kontern außerdem, was dein Gegner hat (z. B. <b>Prison Realm</b> gegen Gojo, <b>Inverted Spear of Heaven</b> gegen Fluchtechniken). Passt eine Ausrüstung zu deinen Fähigkeiten oder ihrem ursprünglichen Besitzer, gibt es Bonus.</li>
@@ -882,6 +1018,10 @@
       if (ui.sealPick.includes(id)) ui.sealPick = ui.sealPick.filter((x) => x !== id);
       else { ui.sealPick.push(id); if (ui.sealPick.length > 2) ui.sealPick.shift(); }
       renderSeal();
+    } else if (act === 'clash-hit') {
+      clashPress(false);
+    } else if (act === 'clash-done') {
+      doAction({ type: 'clashDone' });
     } else if (act === 'spin' && !ui.spinning) {
       doAction({ type: 'spin' });
     } else if (act === 'stop-spin' && !ui.spinning) {
@@ -905,7 +1045,10 @@
       location.href = location.pathname;
     }
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+    if (e.code === 'Space' && state && state.phase === 'clash' && ui.clash && !ui.clash.locked) { e.preventDefault(); clashPress(false); }
+  });
 
   // Testmodus (nur mit ?debug in der Adresse): Spielstand lokal laden, ohne Online-Verbindung
   if (new URLSearchParams(location.search).has('debug')) {
@@ -916,6 +1059,6 @@
   }
 
   window.addEventListener('beforeunload', (e) => {
-    if (state && ['auction', 'intermission', 'final', 'seal', 'gamble'].includes(state.phase)) { e.preventDefault(); e.returnValue = ''; }
+    if (state && ['auction', 'intermission', 'final', 'seal', 'gamble', 'clash'].includes(state.phase)) { e.preventDefault(); e.returnValue = ''; }
   });
 })();

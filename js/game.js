@@ -7,6 +7,7 @@
 //         → [final]  Binding Vow / Ausrüstung wählen
 //         → [seal]   Prison Realm: Gegner schlägt 2 Fähigkeiten vor, Besitzer versiegelt eine
 //         → [gamble] Idle Death Gamble: der Besitzer dreht bis zu 3× (+2 mit Rough Energy) am Automaten
+//         → [clash]  Domain Clash: haben beide eine Domain, entscheidet ein Timing-Duell (5 Runden)
 //         → result
 
 (function (root) {
@@ -68,6 +69,7 @@
       skipNext: null,   // per Sneak Peek beschlossen: diese Karte wird beim Ziehen übersprungen
       seal: null,       // { by, target, options:[id,id]|null, sealed:id|null }
       gamble: null,     // { player, spinsLeft, total, spins:[...], last, done, outcome }
+      clash: null,      // Domain Clash: { domains, zone, perfect, flashPts, hitMult, hits:[[],[]], points, done, winner }
       events: [],       // für Meldungen in der Anzeige
       evSeq: 0,
       log: [],
@@ -325,12 +327,77 @@
   function afterSeal(s) {
     const g = (getPack(s).effects || []).find((e) => e.type === 'gamble');
     const owner = g ? [0, 1].find((p) => countingAbilities(s, p).includes(g.id)) : undefined;
-    if (owner === undefined) return finishResult(s);
+    if (owner === undefined) return afterGamble(s);
     const extra = countingAbilities(s, owner).includes(g.extraSpinsFrom) ? g.extraSpins : 0;
     s.gamble = { player: owner, spinsLeft: g.spins + extra, total: g.spins + extra, spins: [], last: null, done: false, outcome: null };
     s.phase = 'gamble';
     log(s, `${s.players[owner].name} tritt an den Automaten von Idle Death Gamble!`);
     event(s, { kind: 'gamblestart', player: owner });
+  }
+
+  // ───────── Domain Clash ─────────
+  const CLASH_ROUNDS = 5;
+
+  function clashSetup(s, p) {
+    const pack = getPack(s);
+    const byId = Object.fromEntries(pack.abilities.map((a) => [a.id, a]));
+    const ids = countingAbilities(s, p);
+    const energy = s.players[p].energy[0] ? (pack.energy || []).find((e) => e.id === s.players[p].energy[0]) : null;
+    const doms = ids.map((id) => byId[id]).filter((a) => a.type === 'domain');
+    if (!doms.length) return null;
+    const dom = doms.reduce((b, a) => (baseValue(pack, a, ids, energy).v > baseValue(pack, b, ids, energy).v ? a : b));
+    // Wie gut passt das Team zur Domain? Gleicher Charakter oder gemeinsame Klasse
+    const fit = ids.filter((id) => id !== dom.id).map((id) => byId[id])
+      .filter((a) => a.user === dom.user || a.tags.some((t) => dom.tags.includes(t))).length;
+    const power = baseValue(pack, dom, ids, energy).v + fit * 8;
+    const zone = Math.max(0.12, Math.min(0.34, 0.08 + power / 100 * 0.2));
+    const hasBF = ids.includes('schwarzer-blitz');
+    return { domain: dom.id, zone, perfect: zone * (hasBF ? 0.32 : 0.22), flashPts: hasBF ? 34 : 26, blackFlash: hasBF, fit };
+  }
+
+  function afterGamble(s) {
+    const setups = [clashSetup(s, 0), clashSetup(s, 1)];
+    if (!setups[0] || !setups[1]) return finishResult(s);
+    const counterIds = ['einfacher-bereich', 'weidenkorb'];
+    // Hat der Gegner Simple Domain / Hollow Wicker Basket, zählen meine Treffer weniger
+    const guarded = [0, 1].map((p) => countingAbilities(s, p).some((id) => counterIds.includes(id)));
+    s.clash = {
+      rounds: CLASH_ROUNDS,
+      domains: setups.map((x) => x.domain),
+      zone: setups.map((x) => x.zone),
+      perfect: setups.map((x) => x.perfect),
+      flashPts: setups.map((x) => x.flashPts),
+      blackFlash: setups.map((x) => x.blackFlash),
+      fit: setups.map((x) => x.fit),
+      guarded,
+      hitMult: [guarded[1] ? 0.75 : 1, guarded[0] ? 0.75 : 1],
+      hits: [[], []],
+      points: [0, 0],
+      done: false,
+      winner: null,
+    };
+    s.phase = 'clash';
+    log(s, `DOMAIN CLASH: „${s.names[setups[0].domain]}“ gegen „${s.names[setups[1].domain]}“!`);
+    event(s, { kind: 'clashstart' });
+  }
+
+  function clashHit(s, p, offset) {
+    const c = s.clash;
+    const half = c.zone[p] / 2;
+    let kind, pts;
+    if (offset <= c.perfect[p] / 2) { kind = 'flash'; pts = c.flashPts[p]; }
+    else if (offset <= half) { kind = 'hit'; pts = 16 - 6 * (offset / half); }
+    else { kind = 'miss'; pts = 0; }
+    pts = Math.round(pts * c.hitMult[p]);
+    c.hits[p].push({ kind, pts });
+    c.points[p] += pts;
+    if (c.hits[0].length >= c.rounds && c.hits[1].length >= c.rounds) {
+      c.done = true;
+      if (c.points[0] !== c.points[1]) c.winner = c.points[0] > c.points[1] ? 0 : 1;
+      else c.winner = c.zone[0] >= c.zone[1] ? 0 : 1; // Gleichstand: stärkere Domain gewinnt
+      log(s, `${s.players[c.winner].name} gewinnt den Domain Clash!`);
+      event(s, { kind: 'clashwin', player: c.winner });
+    }
   }
 
   function spinOnce(s, g) {
@@ -405,11 +472,22 @@
       return null;
     }
 
+    if (a.type === 'clashHit' || a.type === 'clashDone') {
+      const c = s.clash;
+      if (s.phase !== 'clash' || !c) return 'Gerade läuft kein Domain Clash.';
+      if (a.type === 'clashDone') { if (!c.done) return 'Der Clash läuft noch.'; finishResult(s); return null; }
+      if (c.hits[p].length >= c.rounds) return 'Du bist schon fertig.';
+      if (a.round !== c.hits[p].length) return null; // doppelte Nachricht ignorieren
+      const off = Math.max(0, Math.min(1, Number(a.offset)));
+      clashHit(s, p, Number.isFinite(off) ? off : 1);
+      return null;
+    }
+
     if (a.type === 'spin' || a.type === 'stopSpin' || a.type === 'gambleDone') {
       const G = s.gamble;
       if (s.phase !== 'gamble' || !G) return 'Gerade gibt es keinen Automaten.';
       if (p !== G.player) return 'Nur der Besitzer von Idle Death Gamble darf drehen.';
-      if (a.type === 'gambleDone') { if (!G.done) return 'Erst fertig spielen.'; finishResult(s); return null; }
+      if (a.type === 'gambleDone') { if (!G.done) return 'Erst fertig spielen.'; afterGamble(s); return null; }
       if (G.done) return 'Der Automat ist schon fertig.';
       if (a.type === 'stopSpin') {
         G.done = true;
@@ -586,6 +664,16 @@
     }
     if (gm && foe.gamble === 'jackpot' && energy) lines.push({ kind: 'debuff', label: 'Gegnerischer Jackpot schwächt deine Fluchkraft', points: 0 });
 
+    // 4c) Domain Clash
+    if (me.clash === 'win') {
+      const h = me.clashHalved ? 0.5 : 1;
+      list.forEach((a) => { val[a.id] = Math.round(val[a.id] * (1 + 0.08 * h)); });
+      if (val[me.clashDomain] !== undefined) val[me.clashDomain] = Math.round(val[me.clashDomain] * (1 + 0.2 * h));
+      lines.push({ kind: 'duel', label: `Domain Clash gewonnen: ${byId[me.clashDomain].name}${me.clashHalved ? ' (Simple Domain des Gegners bremst)' : ''}`, points: 0 });
+    } else if (me.clash === 'lose') {
+      lines.push({ kind: 'nojackpot', label: `Domain Clash verloren: ${byId[me.clashDomain].name}`, points: 0 });
+    }
+
     let base = list.reduce((sum, a) => sum + val[a.id], 0);
 
     // 5) Klassen
@@ -653,7 +741,7 @@
     // 11) Domain-Duell: die stärkere Domain gewinnt
     const myDom = list.filter((a) => a.type === 'domain').map((a) => val[a.id]);
     const foeDom = enemy.filter((a) => a.type === 'domain').map((a) => baseValue(pack, a, foeIds, foeEnergy).v);
-    if (myDom.length && foeDom.length && Math.max(...myDom) > Math.max(...foeDom) && pack.domainDuelBonus) {
+    if (!me.clash && myDom.length && foeDom.length && Math.max(...myDom) > Math.max(...foeDom) && pack.domainDuelBonus) {
       const best = list.filter((a) => a.type === 'domain').reduce((b, a) => (val[a.id] > val[b.id] ? a : b));
       lines.push({ kind: 'duel', label: `Domain-Duell gewonnen: ${best.name}`, points: pack.domainDuelBonus });
     }
@@ -692,6 +780,9 @@
       sealed: s.seal && s.seal.target === p && s.seal.sealed ? [s.seal.sealed] : [],
       equip: ch.equipUse || [], energy: pl.energy[0] || null, energyMode: !!s.energyMode,
       gamble: s.gamble && s.gamble.player === p ? s.gamble.outcome : null,
+      clash: s.clash && s.clash.done ? (s.clash.winner === p ? 'win' : 'lose') : null,
+      clashDomain: s.clash ? s.clash.domains[p] : null,
+      clashHalved: !!(s.clash && s.clash.guarded[1 - p]),
     };
   }
 
@@ -705,7 +796,7 @@
   }
 
   const api = {
-    SLOTS, BUDGET, SKIP_MAX_BID, skipBlocked, setBoosts, equipAllowed, liveAbilities, countingAbilities, newGame, startAuction, startStage,
+    SLOTS, BUDGET, SKIP_MAX_BID, CLASH_ROUNDS, skipBlocked, setBoosts, equipAllowed, liveAbilities, countingAbilities, newGame, startAuction, startStage,
     act, isActive, canBid, canOverbid, soloPhase, stageSlots, score, computeResult,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

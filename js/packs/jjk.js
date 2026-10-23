@@ -573,7 +573,10 @@ window.PACKS.jjk = {
   ],
   domainDuelBonus: 15,   // stärkere Domain gewinnt das Domain-Duell
   // Gleicher Charakter verstärkt sich gegenseitig: jede Karte ×(1 + Wert × (Anzahl − 1))
-  userSynergy: { 'Satoru Gojo': 0.07 },
+  userSynergy: {
+    'Satoru Gojo': 0.07, 'Ryomen Sukuna': 0.07, 'Yuta Okkotsu': 0.06, 'Megumi Fushiguro': 0.06,
+    'Mahito': 0.06, 'Jogo': 0.06, 'Yuji Itadori': 0.06, 'Kinji Hakari': 0.06, 'Naoya Zenin': 0.06, 'Dagon': 0.05,
+  },
 
   // ───────── Fluchkraft (Zusatzmodus) ─────────
   // amount: Menge (bringt Punkte), control: Kontrolle 0–1 (gleicht Schwächen aus)
