@@ -23,6 +23,7 @@ window.PACKS.jjk = {
     vow:     { name: 'Bindungsschwur', color: '#fbbf24' },
     equip:   { name: 'Ausrüstung',  color: '#2dd4bf' },
     storage: { name: 'Spezial-Gegenstand', color: '#a3e635' },
+    energy:  { name: 'Fluchkraft',  color: '#e879f9' },
   },
 
   tags: {
@@ -46,6 +47,7 @@ window.PACKS.jjk = {
   abilities: [
     // ───────── Domains ─────────
     { id: 'unendliche-leere', name: "Unlimited Void", user: 'Satoru Gojo', type: 'domain', value: 99,
+      hungry: true,
       needs: { ids: ['sechs-augen'], weak: 80, text: 'Ohne „Six Eyes“ ist die Domain viel schwerer zu kontrollieren.' },
       tags: ['raum', 'seele'],
       art: { kanji: '無', c1: '#0b1a3a', c2: '#60a5fa', glyph: 'void' },
@@ -53,6 +55,7 @@ window.PACKS.jjk = {
       desc: 'Wer in der Domain gefangen ist, bekommt unendlich viele Eindrücke auf einmal und kann sich nicht mehr bewegen oder denken. Schon eine kurze Zeit darin legt Gegner völlig lahm.' },
 
     { id: 'boeser-schrein', name: "Malevolent Shrine", user: 'Ryomen Sukuna', type: 'domain', value: 98,
+      hungry: true,
       tags: ['fluch', 'raum'],
       art: { kanji: '伏', c1: '#2a0606', c2: '#ef4444', glyph: 'shrine' },
       short: 'Eine Domain ohne Wände, die alles im Umkreis zerschneidet.',
@@ -66,6 +69,7 @@ window.PACKS.jjk = {
       desc: 'Megumis unvollständige Domain füllt alles mit Schatten. Er kann darin abtauchen, Doppelgänger erzeugen und seine Shikigami ohne Grenzen beschwören.' },
 
     { id: 'selbstverkoerperung', name: "Self-Embodiment of Perfection", user: 'Mahito', type: 'domain', value: 88,
+      hungry: true,
       needs: { ids: ['verwandlung'], weak: 58, text: 'Ohne „Idle Transfiguration“ hat die Domain keine Technik, die sicher trifft.' },
       tags: ['seele'],
       art: { kanji: '魂', c1: '#0c1f1a', c2: '#2dd4bf', glyph: 'hands' },
@@ -73,6 +77,7 @@ window.PACKS.jjk = {
       desc: 'In dieser Domain trifft Mahitos Seelen-Verwandlung garantiert. Er muss niemanden mehr anfassen – jede Seele im Inneren kann er sofort verformen.' },
 
     { id: 'sarg-eisenberg', name: "Coffin of the Iron Mountain", user: 'Jogo', type: 'domain', value: 76,
+      hungry: true,
       needs: { ids: ['vulkan', 'feuerpfeil'], weak: 58, text: 'Ohne eine Feuer-Technik („Disaster Flames“ oder „Fuga“) fehlt der Domain die tödliche Hitze.' },
       tags: ['feuer'],
       art: { kanji: '炎', c1: '#2b0d02', c2: '#f97316', glyph: 'volcano' },
@@ -80,12 +85,14 @@ window.PACKS.jjk = {
       desc: 'Jogo sperrt seine Gegner in einen Vulkan. Die Hitze ist so extrem, dass schwächere Zauberer verbrennen, bevor sie überhaupt reagieren können.' },
 
     { id: 'todesurteil', name: "Deadly Sentencing", user: 'Hiromi Higuruma', type: 'domain', value: 72,
+      effect: "Beschlagnahmt die stärkste Fluchtechnik des Gegners – sie zählt deutlich weniger.",
       tags: ['regel'],
       art: { kanji: '判', c1: '#1c1608', c2: '#eab308', glyph: 'scale' },
       short: 'Ein Gerichtsprozess – Gewalt ist verboten.',
       desc: 'In Higurumas Domain wird ein Prozess geführt. Wird der Gegner schuldig gesprochen, verliert er seine Fluchtechnik – oder bekommt sogar das Henkersschwert zu spüren.' },
 
     { id: 'idle-death-gamble', name: "Idle Death Gamble", user: 'Kinji Hakari', type: 'domain', value: 80,
+      effect: "Glücksspiel: Bei der Auswertung wird gedreht – mit etwas Glück gibt es den Jackpot!",
       tags: ['regel', 'heilung'],
       art: { kanji: '賭', c1: '#1a0b24', c2: '#ec4899', glyph: 'dice' },
       short: 'Ein Glücksspiel-Automat – beim Jackpot wird Hakari unsterblich.',
@@ -100,6 +107,7 @@ window.PACKS.jjk = {
       desc: 'Zwischen Gojo und allem anderen liegt eine unendliche Distanz. Angriffe werden immer langsamer, je näher sie kommen – und erreichen ihn nie.' },
 
     { id: 'hohles-lila', name: "Hollow Purple", user: 'Satoru Gojo', type: 'technik', value: 98,
+      hungry: true,
       needs: { ids: ['sechs-augen'], weak: 72, text: 'Ohne „Six Eyes“ braucht „Hollow Purple“ lange zum Aufladen und ist ungenau.' },
       tags: ['raum'],
       art: { kanji: '虚', c1: '#1e0b3a', c2: '#a855f7', glyph: 'orb' },
@@ -119,6 +127,7 @@ window.PACKS.jjk = {
       desc: 'Zerlegen ist ein schneller Fernschnitt, Spalten passt sich der Härte des Ziels an und schneidet es mit einem Hieb durch. Zusammen fast unaufhaltsam.' },
 
     { id: 'feuerpfeil', name: "Fuga", user: 'Ryomen Sukuna', type: 'technik', value: 84,
+      hungry: true,
       tags: ['fluch', 'feuer'],
       art: { kanji: '開', c1: '#2a0a02', c2: '#fb923c', glyph: 'arrow' },
       short: 'Ein Flammenpfeil, der alles in einer Explosion vernichtet.',
@@ -131,6 +140,7 @@ window.PACKS.jjk = {
       desc: 'Mit Handzeichen ruft Megumi Tier-Shikigami wie Hunde, Kröten oder eine große Schlange. Jeder hat eigene Fähigkeiten, und tote Shikigami vererben ihre Kraft weiter.' },
 
     { id: 'mahoraga', name: "Summon Mahoraga", user: 'Megumi Fushiguro', type: 'technik', value: 90,
+      hungry: true,
       needs: { ids: ['zehn-schatten'], weak: 52, text: 'Ohne „Ten Shadows“ kann man Mahoraga nicht richtig zähmen – er greift alle an.' },
       tags: ['schatten', 'heilung'],
       art: { kanji: '魔', c1: '#0f0f0f', c2: '#e5e7eb', glyph: 'wheel' },
@@ -168,12 +178,14 @@ window.PACKS.jjk = {
       desc: 'Choso kontrolliert sein Blut völlig. Mit dem Durchdringenden Blut schießt er einen Strahl ab, der schneller ist als der Schall.' },
 
     { id: 'fluchsprache', name: "Cursed Speech", user: 'Toge Inumaki', type: 'technik', value: 58,
+      effect: "„Stopp!“ – der stärkste Kampfskill des Gegners zählt weniger.",
       tags: ['regel'],
       art: { kanji: '言', c1: '#0b1220', c2: '#c4b5fd', glyph: 'mouth' },
       short: 'Jedes Wort wird zum Befehl.',
       desc: 'Was Inumaki sagt, muss passieren – „Stopp!“, „Lauf!“, „Explodiere!“. Gegen stärkere Gegner verletzt die Technik aber auch seinen eigenen Hals.' },
 
     { id: 'boogie-woogie', name: "Boogie Woogie", user: 'Aoi Todo', type: 'technik', value: 62,
+      effect: "Tauscht im richtigen Moment: Der stärkste Konter des Gegners gegen dich wird abgeschwächt.",
       tags: ['raum', 'koerper'],
       art: { kanji: '替', c1: '#0f1a0a', c2: '#84cc16', glyph: 'clap' },
       short: 'Ein Klatschen – und zwei Ziele tauschen den Platz.',
@@ -192,6 +204,7 @@ window.PACKS.jjk = {
       desc: 'Mai kann Dinge aus Fluchenergie herstellen, die bleiben. Das kostet aber so viel Kraft, dass sie meist nur eine einzige Kugel pro Tag schafft.' },
 
     { id: 'umgekehrte-technik', name: "Reverse Cursed Technique", user: 'Shoko Ieiri', type: 'technik', value: 82,
+      effect: "Heilt: Alle Schwächungen durch gegnerische Effekte werden gemildert.",
       tags: ['heilung'],
       art: { kanji: '癒', c1: '#062016', c2: '#4ade80', glyph: 'cross' },
       short: 'Positive Energie heilt fast jede Wunde.',
@@ -236,6 +249,7 @@ window.PACKS.jjk = {
 
     // ───────── Neu: weitere Domains ─────────
     { id: 'authentische-liebe', name: "Authentic Mutual Love", user: 'Yuta Okkotsu', type: 'domain', value: 90,
+      hungry: true,
       tags: ['kopie'],
       needs: { ids: ['kopie'], weak: 58, text: 'Ohne „Copy“ gibt es keine kopierten Techniken, die in der Domain treffen.' },
       art: { kanji: '愛', c1: '#1a0610', c2: '#f472b6', glyph: 'heart' },
@@ -258,6 +272,7 @@ window.PACKS.jjk = {
 
     // ───────── Neu: weitere Fluchtechniken ─────────
     { id: 'blau', name: "Blue", user: 'Satoru Gojo', type: 'technik', value: 84,
+      hungry: true,
       tags: ['raum'],
       needs: { ids: ['sechs-augen'], weak: 64, text: 'Ohne „Six Eyes“ ist „Blue“ langsam und schwer zu steuern.' },
       art: { kanji: '蒼', c1: '#06122e', c2: '#3b82f6', glyph: 'sphere' },
@@ -265,6 +280,7 @@ window.PACKS.jjk = {
       desc: 'Gojo erzeugt eine anziehende Kraft, die Gegner und Umgebung an einen Punkt zieht und zerquetscht. Er kann sich damit auch selbst blitzschnell bewegen.' },
 
     { id: 'rot', name: "Reversal Red", user: 'Satoru Gojo', type: 'technik', value: 86,
+      hungry: true,
       tags: ['raum'],
       needs: { ids: ['umgekehrte-technik'], weak: 58, text: '„Reversal Red“ braucht positive Energie – ohne „Reverse Cursed Technique“ klappt es kaum.' },
       art: { kanji: '赫', c1: '#2a0606', c2: '#ef4444', glyph: 'sphere' },
@@ -272,12 +288,14 @@ window.PACKS.jjk = {
       desc: 'Das Gegenteil von Blau: Rot stößt alles mit enormer Wucht von sich. Dafür muss Gojo Fluchenergie umkehren.' },
 
     { id: 'kopie', name: "Copy", user: 'Yuta Okkotsu', type: 'technik', value: 84,
+      effect: "Kopiert einen Teil der Kraft der stärksten gegnerischen Fluchtechnik.",
       tags: ['kopie'],
       art: { kanji: '写', c1: '#1a0610', c2: '#f9a8d4', glyph: 'mirror' },
       short: 'Kopiert die Techniken anderer Zauberer.',
       desc: 'Yuta kann mit Rikas Hilfe fremde Fluchtechniken kopieren und selbst einsetzen – zum Beispiel Inumakis Fluchsprache.' },
 
     { id: 'rika', name: "Rika", user: 'Yuta Okkotsu', type: 'technik', value: 88,
+      hungry: true,
       tags: ['kopie', 'seele'],
       art: { kanji: '里', c1: '#140818', c2: '#e879f9', glyph: 'hands' },
       short: 'Die Königin der Flüche mit fast unendlicher Fluchenergie.',
@@ -302,6 +320,7 @@ window.PACKS.jjk = {
       desc: 'Hanami lässt Wurzeln aus dem Boden schießen, Blumenfelder entstehen, die den Kampfwillen rauben, und heilt sich mit Pflanzenkraft.' },
 
     { id: 'bernstein', name: "Mythical Beast Amber", user: 'Hajime Kashimo', type: 'technik', value: 82,
+      hungry: true,
       tags: ['blitz', 'koerper'],
       art: { kanji: '雷', c1: '#060d24', c2: '#60a5fa', glyph: 'flash' },
       short: 'Der Körper wird zu Blitz – nur einmal im Leben einsetzbar.',
@@ -454,9 +473,10 @@ window.PACKS.jjk = {
       short: 'Eine Kette ohne erkennbares Ende.',
       desc: 'Die Kette kann unglaublich lang werden, solange ein Ende nicht sichtbar ist. Toji kombiniert sie mit anderen Waffen für Angriffe aus jeder Distanz.' },
     { id: 'gefaengnisreich', name: "Prison Realm", user: 'Suguru Geto', type: 'equip', value: 82,
+      seal: true, effect: 'Versiegelt eine Fähigkeit des Gegners: Er schlägt 2 vor, du wählst eine davon aus.',
       fits: ['fluchmanipulation'],
       counters: [
-        { vsUser: 'Satoru Gojo', bonus: 18, desc: 'Versiegelt Gojo – stärker für jede seiner Fähigkeiten beim Gegner.' },
+        { vsUser: 'Satoru Gojo', bonus: 12, desc: 'Versiegelt Gojo – stärker für jede seiner Fähigkeiten beim Gegner.' },
       ],
       art: { kanji: '獄', c1: '#0f0a1a', c2: '#a78bfa', glyph: 'cube' },
       short: 'Ein lebendes Siegel, das selbst den Stärksten einsperrt.',
@@ -528,4 +548,71 @@ window.PACKS.jjk = {
   equipUse: 2,         // davon zählen am Ende
   equipUserBonus: 20,  // Fähigkeit vom ursprünglichen Besitzer vorhanden
   equipFitBonus: 15,   // Fähigkeit, zu der die Ausrüstung passt, vorhanden
+
+  // ───────── Spezial-Effekte bei der Auswertung ─────────
+  effects: [
+    { type: 'debuff', id: 'todesurteil', vsType: 'technik', factor: 0.55, label: 'Deadly Sentencing beschlagnahmt' },
+    { type: 'debuff', id: 'fluchsprache', vsType: 'kampf', factor: 0.7, label: 'Cursed Speech stoppt' },
+    { type: 'copy', id: 'kopie', vsType: 'technik', share: 0.3, label: 'Copy kopiert' },
+    { type: 'jackpot', id: 'idle-death-gamble', chance: 0.4, bonus: 45, energyBoost: { id: 'hakari-energie', chance: 0.35 } },
+    { type: 'shield', id: 'boogie-woogie', factor: 0.5, label: 'Boogie Woogie weicht aus' },
+    { type: 'heal', id: 'umgekehrte-technik', factor: 0.5, label: 'Reverse Cursed Technique heilt' },
+  ],
+  domainDuelBonus: 15,   // stärkere Domain gewinnt das Domain-Duell
+  // Gleicher Charakter verstärkt sich gegenseitig: jede Karte ×(1 + Wert × (Anzahl − 1))
+  userSynergy: { 'Satoru Gojo': 0.07 },
+
+  // ───────── Fluchkraft (Zusatzmodus) ─────────
+  // amount: Menge (bringt Punkte), control: Kontrolle 0–1 (gleicht Schwächen aus)
+  energySlots: 1,
+  energy: [
+    { id: 'sukuna-energie', name: "Sukuna's Cursed Energy", user: 'Ryomen Sukuna', type: 'energy', amount: 100, control: 0.9,
+      art: { kanji: '王', c1: '#2a0606', c2: '#ef4444', glyph: 'flame' },
+      short: 'Riesige Fluchkraft mit nahezu perfekter Kontrolle.',
+      desc: 'Der König der Flüche hat nicht nur gewaltige Reserven, sondern lenkt sie auch meisterhaft. Fast jede Schwäche deiner Fähigkeiten wird ausgeglichen.' },
+    { id: 'gojo-energie', name: "Gojo's Cursed Energy", user: 'Satoru Gojo', type: 'energy', amount: 96, control: 0.3,
+      art: { kanji: '蒼', c1: '#06122e', c2: '#60a5fa', glyph: 'sphere' },
+      short: 'Ein fast endloser Vorrat – aber ohne Six Eyes schwer zu lenken.',
+      desc: 'Gojos Fluchkraft ist gewaltig. Seine perfekte Kontrolle kommt aber von den Six Eyes – die stecken nicht in dieser Karte. Darum gleicht sie Schwächen nur wenig aus, bringt aber viele Punkte.' },
+    { id: 'yuta-energie', name: "Yuta's Cursed Energy", user: 'Yuta Okkotsu', type: 'energy', amount: 98, control: 0.55,
+      art: { kanji: '愛', c1: '#1a0610', c2: '#f472b6', glyph: 'heart' },
+      short: 'Rikas grenzenloser Vorrat – mit ordentlicher Kontrolle.',
+      desc: 'Durch Rika hat Yuta eine der größten Fluchkraft-Reserven überhaupt. Seine Kontrolle ist gut, aber nicht perfekt.' },
+    { id: 'kenjaku-energie', name: "Kenjaku's Cursed Energy", user: 'Suguru Geto', type: 'energy', amount: 82, control: 0.85,
+      art: { kanji: '脳', c1: '#111827', c2: '#a3e635', glyph: 'swirl' },
+      short: 'Tausend Jahre Erfahrung – sehr präzise gelenkt.',
+      desc: 'Kenjaku hat über Jahrhunderte gelernt, Fluchkraft sparsam und genau einzusetzen. Viel Kontrolle, solide Menge.' },
+    { id: 'mahito-energie', name: "Mahito's Cursed Energy", user: 'Mahito', type: 'energy', amount: 78, control: 0.75,
+      art: { kanji: '魂', c1: '#0c1f1a', c2: '#2dd4bf', glyph: 'stitch' },
+      short: 'Ein Fluch, der mit jedem Kampf besser wird.',
+      desc: 'Mahito lernt beim Kämpfen ständig dazu und lenkt seine Fluchkraft immer geschickter.' },
+    { id: 'kashimo-energie', name: "Kashimo's Cursed Energy", user: 'Hajime Kashimo', type: 'energy', amount: 74, control: 0.6,
+      art: { kanji: '雷', c1: '#060d24', c2: '#93c5fd', glyph: 'bolt' },
+      short: 'Elektrisch geladene Fluchkraft.',
+      desc: 'Kashimos Fluchkraft hat die Eigenschaften von Elektrizität – schnell, wild und schwer abzuwehren.' },
+    { id: 'yuji-energie', name: "Yuji's Cursed Energy", user: 'Yuji Itadori', type: 'energy', amount: 72, control: 0.5,
+      art: { kanji: '虎', c1: '#1f0f05', c2: '#fb923c', glyph: 'fist' },
+      short: 'Wächst mit jedem Kampf – noch etwas ungestüm.',
+      desc: 'Als Sukunas Gefäß hat Yuji überraschend viel Fluchkraft. Die Kontrolle wird mit jedem Schwarzen Blitz besser.' },
+    { id: 'hakari-energie', name: "Hakari's Cursed Energy", user: 'Kinji Hakari', type: 'energy', amount: 70, control: 0.45,
+      art: { kanji: '賭', c1: '#1a0b24', c2: '#ec4899', glyph: 'dice' },
+      short: 'Heiße Fluchkraft – erhöht die Chance auf den Jackpot.',
+      desc: 'Hakaris Fluchkraft brennt wie ein Spieler im Glücksrausch. Zusammen mit „Idle Death Gamble“ steigt die Chance auf den Jackpot deutlich.' },
+    { id: 'megumi-energie', name: "Megumi's Cursed Energy", user: 'Megumi Fushiguro', type: 'energy', amount: 66, control: 0.65,
+      art: { kanji: '影', c1: '#05080f', c2: '#94a3b8', glyph: 'shadow' },
+      short: 'Sorgfältig eingeteilte Fluchkraft für viele Shikigami.',
+      desc: 'Megumi muss seine Fluchkraft auf viele Shikigami aufteilen und hat gelernt, gut damit hauszuhalten.' },
+    { id: 'nanami-energie', name: "Nanami's Cursed Energy", user: 'Kento Nanami', type: 'energy', amount: 52, control: 0.85,
+      art: { kanji: '比', c1: '#1a1708', c2: '#facc15', glyph: 'ratio' },
+      short: 'Wenig, aber extrem effizient – wie ein Arbeitstag nach Plan.',
+      desc: 'Nanami verschwendet nichts. Seine Fluchkraft ist nicht riesig, aber fast perfekt kontrolliert – ideal, um Schwächen auszugleichen.' },
+    { id: 'toji-null', name: "Toji's Zero Cursed Energy", user: 'Toji Fushiguro', type: 'energy', amount: 0, control: 0,
+      special: { ifAny: ['himmlische-einschraenkung', 'maki-waffen'], bonus: 40, label: 'Perfekte Himmlische Einschränkung' },
+      art: { kanji: '零', c1: '#0a0f0a', c2: '#a3a3a3', glyph: 'chain' },
+      short: 'Gar keine Fluchkraft – nur mit Himmlischer Einschränkung genial.',
+      desc: 'Toji hat null Fluchkraft. Für die meisten Teams ist das nutzlos. Wer aber „Heavenly Restriction“ oder „Maki\'s Weapon Mastery“ hat, wird dadurch komplett unsichtbar für Barrieren – und bekommt einen großen Bonus.' },
+  ],
+  energyPointFactor: 0.5,   // Punkte = Menge × Faktor
+  energyHungryFactor: 0.12, // jede energiehungrige Fähigkeit + Menge × Faktor
+  energyOwnBonus: 12,       // Fluchkraft vom selben Charakter wie eine deiner Fähigkeiten
 };

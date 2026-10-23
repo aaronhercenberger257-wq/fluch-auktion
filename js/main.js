@@ -9,7 +9,7 @@
   let myName = '';
   let foeName = '';
   let guestConnected = false;
-  let settings = { packId: Object.keys(PACKS)[0], mode: 'classic' };
+  let settings = { packId: Object.keys(PACKS)[0], mode: 'classic', energy: false };
   let state = null;
   const ui = {
     gameId: null, coinShown: null, lastRound: null, lastHigh: null, slotCounts: [0, 0, 0, 0], lastEv: 0,
@@ -19,7 +19,7 @@
   const pack = () => PACKS[(state && state.packId) || settings.packId];
   const item = (id) => {
     const p = pack();
-    return p.abilities.find((a) => a.id === id) || (p.vows || []).find((v) => v.id === id) || (p.equipment || []).find((e) => e.id === id);
+    return p.abilities.find((a) => a.id === id) || (p.vows || []).find((v) => v.id === id) || (p.equipment || []).find((e) => e.id === id) || (p.energy || []).find((e) => e.id === id);
   };
   const foe = () => 1 - me;
   const MODES = {
@@ -130,6 +130,7 @@
 
   packSelect.onchange = () => { settings.packId = packSelect.value; sendLobby(); };
   modeSelect.onchange = () => { settings.mode = modeSelect.value; renderLobby(); sendLobby(); };
+  $('#set-energy').onchange = (e) => { settings.energy = e.target.checked; sendLobby(); };
 
   $('#btn-share').onclick = async () => {
     const link = location.origin + location.pathname + '?raum=' + $('#lobby-code').textContent;
@@ -153,6 +154,7 @@
     packSelect.value = settings.packId;
     modeSelect.value = settings.mode || 'classic';
     $('#mode-desc').textContent = MODES[settings.mode || 'classic'].desc;
+    $('#set-energy').checked = !!settings.energy;
     $('#lobby-settings').classList.toggle('readonly', me !== 0);
     const startBtn = $('#btn-start');
     if (me === 0) {
@@ -223,7 +225,7 @@
     if (ui.starting) return;
     ui.starting = true;
     ui.rematchAsked = false;
-    state = Game.newGame(PACKS[settings.packId], [myName, foeName], { mode: settings.mode });
+    state = Game.newGame(PACKS[settings.packId], [myName, foeName], { mode: settings.mode, energy: settings.energy });
     state.gameId = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
     broadcast();
     setTimeout(() => {
@@ -261,13 +263,14 @@
     if (state.gameId !== ui.gameId) {
       ui.gameId = state.gameId;
       ui.lastRound = null; ui.slotCounts = [0, 0, 0, 0]; ui.lastHigh = null;
-      ui.lastEv = state.evSeq; ui.final = null; ui.rematchSent = null;
+      ui.lastEv = state.evSeq; ui.final = null; ui.rematchSent = null; ui.sealPick = null;
     }
     announceEvents();
     if (state.phase === 'coin') renderCoin();
     else if (state.phase === 'auction') renderAuction();
     else if (state.phase === 'intermission') renderIntermission();
     else if (state.phase === 'final') renderFinal();
+    else if (state.phase === 'seal') renderSeal();
     else if (state.phase === 'result') renderResult();
   }
 
@@ -282,6 +285,8 @@
       if (ev.kind === 'endskip') return `${who} ${ev.player === me ? 'nutzt' : 'nutzt'} Final Skip auf ${nm}`;
       if (ev.kind === 'peekskip') return `${nm} wurde nach dem Sneak Peek übersprungen`;
       if (ev.kind === 'peek' && ev.player !== me) return `${who} hat Sneak Peek benutzt 👀`;
+      if (ev.kind === 'sealstart') return ev.player === me ? 'Prison Realm öffnet sich …' : `${who} öffnet Prison Realm! 🧊`;
+      if (ev.kind === 'sealed') return `${nm} wurde versiegelt 🔒`;
       return null;
     }).filter(Boolean);
     if (texts.length) toast(texts.join(' · '));
@@ -342,8 +347,18 @@
         ${vowSlot}
       </div>
       ${eqMode ? `<div class="slots-wrap eqwrap ${state.stage === 'equipment' ? '' : 'dim'}"><div class="slots eq">${slotRow(p, pl.equip, state.limits.equipment, 'equip', 2)}</div>${storageSlot}</div>` : ''}
+      ${state.energyMode ? `<div class="energy-row ${state.stage === 'energy' ? '' : 'dim'}">${pl.energy[0]
+        ? `<button class="slot energy filled" data-action="detail" data-id="${pl.energy[0]}" title="Fluchkraft">${art(item(pl.energy[0]), 'en' + p)}</button><span>${esc(item(pl.energy[0]).name)}</span>`
+        : '<span class="slot energy" title="Fluchkraft"></span><span class="muted">Fluchkraft</span>'}</div>` : ''}
       <div class="pmeta">${tokenChips(pl)}</div>
     </div>`;
+  }
+
+  // Fluchkraft: Menge und Kontrolle als Wörter (keine genauen Zahlen)
+  function energyChips(it) {
+    const amt = it.amount >= 95 ? 'gewaltig' : it.amount >= 75 ? 'groß' : it.amount >= 55 ? 'mittel' : it.amount > 0 ? 'klein' : 'null';
+    const ctl = it.control >= 0.8 ? 'meisterhaft' : it.control >= 0.6 ? 'gut' : it.control >= 0.4 ? 'mittel' : it.control > 0 ? 'schwach' : 'keine';
+    return `<div class="chips"><span class="chip en">Menge: <b>${amt}</b></span><span class="chip en">Kontrolle: <b>${ctl}</b></span></div>`;
   }
 
   function cardExtra(it) {
@@ -370,7 +385,9 @@
         <h2 class="card-name">${esc(it.name)}</h2>
         <div class="card-user">${it.type === 'equip' ? 'Gehörte: ' : ''}${esc(it.user)}</div>
         <p class="card-short">${esc(it.short)}</p>
-        ${tags ? `<div class="chips">${tags}</div>` : ''}
+        ${tags || it.hungry ? `<div class="chips">${tags}${it.hungry ? '<span class="chip hungry" title="Profitiert von viel Fluchkraft">🔥 Energiehungrig</span>' : ''}</div>` : ''}
+        ${it.type === 'energy' ? energyChips(it) : ''}
+        ${it.effect ? `<p class="effect">✦ ${esc(it.effect)}</p>` : ''}
         <details class="desc" ${opts.open ? 'open' : ''}>
           <summary>Beschreibung</summary>
           <p>${esc(it.desc)}</p>
@@ -437,7 +454,7 @@
       if (isVow && my.vow) why = 'Du hast schon einen Binding Vow.';
       else if (isStorage && my.storage) why = 'Du hast schon einen Inventory Curse.';
       else if (my.budget < 1) why = 'Du hast kein Geld mehr.';
-      else why = 'Deine Slots sind voll.';
+      else why = state.stage === 'energy' ? 'Du hast schon eine Fluchkraft.' : 'Deine Slots sind voll.';
       turnHTML = `<div class="turn-msg">${why}</div>
         <p class="hint">${esc(their.name)} bietet hier allein.${Game.stageSlots(state, me).length < state.limits[state.stage] && !isVow && !isStorage ? ' Deine leeren Slots werden am Ende zufällig gefüllt.' : ''}</p>`;
     } else {
@@ -447,7 +464,7 @@
 
     $('#game').innerHTML = `
       <div class="players">${playerBar(me)}${playerBar(foe())}</div>
-      <div class="round-info"><span>${state.stage === 'equipment' ? 'Ausrüstung' : 'Fähigkeiten'} · Karte #${state.round}</span><span>noch ${state.deck.length} im Stapel</span></div>
+      <div class="round-info"><span>${{ abilities: 'Fähigkeiten', equipment: 'Ausrüstung', energy: 'Fluchkraft' }[state.stage]} · Karte #${state.round}</span><span>noch ${state.deck.length} im Stapel</span></div>
       ${setBoostHTML()}
       <div class="auction">
         ${abilityCard(it, { enter: newRound, open: ui.descOpen, uid: 'main' })}
@@ -491,7 +508,7 @@
     const t = my.tokens;
     const pk = state.peek;
     const solo = Game.soloPhase(state) && Game.isActive(state, me);
-    const what = state.stage === 'equipment' ? 'Ausrüstung' : 'Karte';
+    const what = { abilities: 'Karte', equipment: 'Ausrüstung', energy: 'Fluchkraft' }[state.stage];
     const skipWhy = Game.skipBlocked(state, me);
     const skipHint = !t.skip ? '' : skipWhy
       ? (state.current.turn === me ? `Skip gesperrt: Gebot über ${Game.SKIP_MAX_BID} €. ` : 'Skippen kannst du nur, wenn du dran bist. ')
@@ -531,24 +548,58 @@
         <button class="btn btn-secondary" data-action="peek" ${t.peek && state.deck.length && !(pk && pk.seen[me]) ? '' : 'disabled'} title="Sieh heimlich, was als Nächstes kommt">👁 Sneak Peek</button>
         ${solo ? `<button class="btn btn-secondary glow" data-action="endskip" ${t.endskip ? '' : 'disabled'} title="Nur, wenn dein Gegner nichts mehr kaufen kann">⏩ Final Skip</button>` : ''}
       </div>
-      <p class="hint">${skipHint}${solo && t.endskip ? `${esc(their.name)} kann nichts mehr kaufen – du hast einen <b>Final Skip</b>. ` : ''}Jede Aktion geht einmal${state.mode === 'equipment' ? ' pro Runde' : ''}.</p>
+      <p class="hint">${skipHint}${solo && t.endskip ? `${esc(their.name)} kann nichts mehr kaufen – du hast einen <b>Final Skip</b>. ` : ''}Jede Aktion geht einmal${state.stages.length > 1 ? ' pro Runde' : ''}.</p>
       ${peekHTML}
     </div>`;
   }
 
   function renderIntermission() {
+    const eq = state.stage === 'equipment';
     const rows = state.players.map((pl, p) => `<div class="inter-row ${p === me ? 'me' : 'foe'}">
       <b>${esc(pl.name)}${p === me ? ' (Du)' : ''}</b>
-      <span>${pl.leftover} € übrig → <strong>${pl.budget} €</strong></span></div>`).join('');
+      <span>${eq ? `${pl.leftover} € übrig → <strong>${pl.budget} €</strong>` : `<strong>${pl.budget} €</strong> Restgeld`}</span></div>`).join('');
     $('#game').innerHTML = `<div class="inter panel">
-      <p class="eyebrow">Runde 2</p>
-      <h2>Ausrüstung</h2>
-      <p>Euer Restgeld wird <b>verdoppelt</b>. Jeder hat jetzt <b>${state.limits.equipment} Ausrüstungs-Slots</b> – am Ende zählen nur <b>${state.equipUse}</b> davon.</p>
+      <p class="eyebrow">Runde ${state.stageIdx + 1}</p>
+      <h2>${eq ? 'Ausrüstung' : 'Fluchkraft'}</h2>
+      ${eq
+        ? `<p>Euer Restgeld wird <b>verdoppelt</b>. Jeder hat jetzt <b>${state.limits.equipment} Ausrüstungs-Slots</b> – am Ende zählen nur <b>${state.equipUse}</b> davon.</p>`
+        : `<p>Jetzt geht es um die <b>Fluchkraft</b> eines Charakters. Bezahlt wird mit eurem <b>Restgeld</b> (nicht verdoppelt). Jeder kann nur <b>eine</b> kaufen – wer kein Geld mehr hat, geht leer aus.</p>`}
       <div class="inter-rows">${rows}</div>
-      <p class="hint">Waffen bringen Extra-Punkte, wenn sie zu deinen Fähigkeiten oder ihrem ursprünglichen Besitzer passen. Skip, Sneak Peek und Final Skip sind wieder aufgeladen. Mit dem <b>Inventory Curse</b> darfst du sogar alle 3 benutzen.</p>
+      <p class="hint">${eq
+        ? 'Waffen bringen Extra-Punkte, wenn sie zu deinen Fähigkeiten oder ihrem ursprünglichen Besitzer passen. Mit dem <b>Inventory Curse</b> darfst du sogar alle 3 benutzen.'
+        : 'Viel <b>Menge</b> bringt Punkte und hilft energiehungrigen Fähigkeiten 🔥. Gute <b>Kontrolle</b> gleicht Schwächen aus – z. B. „Infinity“ ohne „Six Eyes“.'}
+        Skip, Sneak Peek und Final Skip sind wieder aufgeladen.</p>
       <div class="inter-bar"><span></span></div>
     </div>`;
-    ui.slotCounts = [0, 1].map((p) => state.players[p].slots.length).concat([0, 0]);
+    ui.slotCounts = [0, 1].map((p) => state.players[p].slots.length).concat([0, 1].map((p) => state.players[p].equip.length));
+  }
+
+  // Prison Realm: der Gegner schlägt 2 Fähigkeiten vor, der Besitzer versiegelt eine davon
+  function renderSeal() {
+    const sl = state.seal;
+    const owner = state.players[sl.by], victim = state.players[sl.target];
+    const iOwn = sl.by === me;
+    let body;
+    if (!sl.options && !iOwn) {
+      if (!ui.sealPick) ui.sealPick = [];
+      const tiles = Game.liveAbilities(state, me).map((id) => `<button class="pick ${ui.sealPick.includes(id) ? 'sac' : ''}" data-action="seal-pick" data-id="${id}">
+        <span class="thumb">${art(item(id), 'sp' + id)}</span><b>${esc(item(id).name)}</b>${ui.sealPick.includes(id) ? '<em>vorgeschlagen</em>' : ''}</button>`).join('');
+      body = `<p>${esc(owner.name)} benutzt <b>Prison Realm</b> gegen dich! Wähle <b>2</b> deiner Fähigkeiten – ${esc(owner.name)} versiegelt dann eine davon.</p>
+        <p class="hint left">Tipp: Schlag Fähigkeiten vor, auf die du am ehesten verzichten kannst. Versiegelte Fähigkeiten zählen gar nicht – auch nicht für Kombos oder als Partner.</p>
+        <div class="picks">${tiles}</div>
+        <button class="btn btn-primary btn-big" data-action="seal-offer" ${ui.sealPick.length === 2 ? '' : 'disabled'}>Diese 2 vorschlagen</button>`;
+    } else if (!sl.options) {
+      body = `<p>Du benutzt <b>Prison Realm</b>! ${esc(victim.name)} wählt gerade 2 Fähigkeiten aus, von denen du eine versiegeln darfst …</p><div class="inter-bar wait"><span></span></div>`;
+    } else if (iOwn) {
+      const tiles = sl.options.map((id) => `<button class="pick" data-action="seal-choose" data-id="${id}">
+        <span class="thumb">${art(item(id), 'sc' + id)}</span><b>${esc(item(id).name)}</b><em>versiegeln</em></button>`).join('');
+      body = `<p>${esc(victim.name)} schlägt diese 2 Fähigkeiten vor. <b>Welche versiegelst du?</b></p><div class="picks two">${tiles}</div>`;
+    } else {
+      body = `<p>Du hast vorgeschlagen: <b>${sl.options.map((id) => esc(item(id).name)).join('</b> und <b>')}</b>. ${esc(owner.name)} entscheidet …</p><div class="inter-bar wait"><span></span></div>`;
+    }
+    $('#game').innerHTML = `<div class="final"><div class="seal-box">
+      <div class="seal-cube">${art(item('gefaengnisreich'), 'cube')}</div>
+      <h2 class="final-title">Prison Realm</h2>${body}</div></div>`;
   }
 
   // Vor der Auswertung: Bindungsschwur einsetzen / Ausrüstung wählen
@@ -621,19 +672,22 @@
     const diff = Math.abs(mineNum - 50) * 2;
     const verdict = r.winner === -1 ? '' : diff < 4 ? 'Hauchdünn!' : diff < 12 ? 'Knapp.' : diff < 25 ? 'Klarer Sieg.' : 'Totale Vernichtung!';
 
-    const icons = { tag: '◆', user: '★', combo: '✦', all: '◎', counter: '⚔', vow: '⚡', equip: '🛡' };
+    const icons = { tag: '◆', user: '★', combo: '✦', all: '◎', counter: '⚔', vow: '⚡', equip: '🛡', energy: '🔥', debuff: '▼', copy: '⧉', duel: '⚔', jackpot: '🎰', nojackpot: '🎲' };
     const cols = order.map((p, ci) => {
       const pl = state.players[p], sc = r.scores[p];
       const ch = pl.choice || {};
       const items = pl.slots.map((id, i) => {
         const ab = item(id);
         const sub = pl.filled.includes(id) ? '<span class="rand">Zufall</span>' : `gekauft für ${pl.paid[id]} €`;
+        const sealed = state.seal && state.seal.target === p && state.seal.sealed === id;
         const flags = [
+          sealed ? '<div class="sacr">🔒 im Prison Realm versiegelt – zählt nicht</div>' : '',
           id === ch.sacrifice ? '<div class="sacr">✝ geopfert für den Binding Vow</div>' : '',
-          id === ch.target ? '<div class="boost">⚡ durch den Binding Vow verstärkt</div>' : '',
+          id === ch.target && !sealed ? '<div class="boost">⚡ durch den Binding Vow verstärkt</div>' : '',
+          id === ch.target && sealed ? '<div class="weak">⚡ Die Verstärkung durch den Binding Vow ist verloren.</div>' : '',
           sc.weakened.includes(id) ? `<div class="weak">⚠ geschwächt – ${esc(ab.needs.text)}</div>` : '',
         ].join('');
-        return `<button class="ritem ${id === ch.sacrifice ? 'gone' : ''}" style="animation-delay:${(ci * 5 + i) * 60}ms" data-action="detail" data-id="${id}">
+        return `<button class="ritem ${id === ch.sacrifice || sealed ? 'gone' : ''}" style="animation-delay:${(ci * 5 + i) * 60}ms" data-action="detail" data-id="${id}">
           <span class="thumb">${art(ab, 'r' + p + i)}</span>
           <span><div class="nm">${esc(ab.name)}</div><div class="sub">${esc(pack().types[ab.type].name)} · ${sub}</div>${flags}</span></button>`;
       }).join('');
@@ -646,15 +700,24 @@
       }).join('');
       const storageLine = pl.storage ? `<div class="vow-line storage-line">🐛 Inventory Curse – alle ${pl.equip.length} Ausrüstungen im Kampf${pl.paid[pl.storage] !== undefined ? ` (gekauft für ${pl.paid[pl.storage]} €)` : ''}</div>` : '';
       const vowLine = pl.vow ? `<div class="vow-line">📜 Binding Vow ${ch.sacrifice ? 'eingesetzt' : 'nicht eingesetzt'}${pl.paid[pl.vow] !== undefined ? ` (gekauft für ${pl.paid[pl.vow]} €)` : ''}</div>` : '';
-      const lines = sc.lines.map((l) => `<div class="bonus-line" ${l.desc ? `title="${esc(l.desc)}"` : ''}><span><i class="bi">${icons[l.kind] || '+'}</i>${esc(l.label)}</span></div>`).join('');
+      const BAD = ['debuff', 'nojackpot'];
+      const lineHTML = (l) => `<div class="bonus-line ${BAD.includes(l.kind) ? 'bad' : ''} ${l.kind === 'jackpot' ? 'jp' : ''}" ${l.desc ? `title="${esc(l.desc)}"` : ''}><span><i class="bi">${icons[l.kind] || '+'}</i>${esc(l.label)}</span></div>`;
+      const lines = sc.lines.filter((l) => !BAD.includes(l.kind)).map(lineHTML).join('');
+      const badLines = sc.lines.filter((l) => BAD.includes(l.kind)).map(lineHTML).join('');
+      const enItem = pl.energy[0] ? `<p class="eyebrow">Fluchkraft</p><div class="rlist"><button class="ritem" data-action="detail" data-id="${pl.energy[0]}">
+          <span class="thumb">${art(item(pl.energy[0]), 'ren' + p)}</span>
+          <span><div class="nm">${esc(item(pl.energy[0]).name)}</div><div class="sub">gekauft für ${pl.paid[pl.energy[0]]} €</div></span></button></div>`
+        : state.energyMode ? '<p class="eyebrow">Fluchkraft</p><div class="vow-line muted">Keine Fluchkraft gekauft</div>' : '';
       return `<div class="rcol ${r.winner === p ? 'winner' : ''}">
         <h3><span>${esc(pl.name)}${p === me ? ' (Du)' : ''}</span><span class="pct">${p === me ? mine : theirs} %</span></h3>
         <div class="rlist">${items}</div>
         ${eqItems ? `<p class="eyebrow">Ausrüstung</p><div class="rlist">${eqItems}</div>` : ''}
+        ${enItem}
         ${vowLine}${storageLine}
         <div class="bonus">
           <p class="eyebrow">Das hat ${p === me ? 'dein' : 'sein'} Team stärker gemacht</p>
           ${lines || '<div class="bonus-line muted"><span>Keine Boni – die Karten passen nicht zusammen.</span></div>'}
+          ${badLines ? `<p class="eyebrow bad-title">Das hat ${p === me ? 'dein' : 'sein'} Team geschwächt</p>${badLines}` : ''}
         </div>
       </div>`;
     }).join('');
@@ -686,6 +749,9 @@
       <li>📜 <b>Binding Vow</b>: eine Spezialkarte für einen Extra-Slot. Vor der Auswertung opferst du eine Fähigkeit – dafür wird eine andere viel stärker.</li>
       <li>🎲 <b>Sets</b>: Hast du schon Karten eines Charakters (z. B. Gojo), kommen weitere Karten von ihm öfter – je mehr du hast, desto öfter. Hat dein Gegner auch welche, steigt die Chance noch mehr. Pro Spieler zählt nur ein Set: das, von dem noch die meisten Karten im Stapel sind.</li>
       <li>Leere Slots werden am Ende <b>zufällig</b> gefüllt.</li>
+      <li>✦ <b>Spezial-Effekte</b>: Manche Karten wirken direkt auf den Gegner – z. B. <b>Deadly Sentencing</b> beschlagnahmt seine stärkste Fluchtechnik, <b>Cursed Speech</b> stoppt seinen stärksten Kampfskill, <b>Copy</b> kopiert einen Teil seiner stärksten Technik, <b>Boogie Woogie</b> weicht seinem stärksten Konter aus, <b>Reverse Cursed Technique</b> heilt Schwächungen, <b>Idle Death Gamble</b> würfelt um einen Jackpot. Haben beide eine Domain, gewinnt die stärkere das <b>Domain-Duell</b>. Mehrere Gojo-Karten verstärken sich gegenseitig.</li>
+      <li>🧊 <b>Prison Realm</b> (Ausrüstung): Dein Gegner schlägt 2 seiner Fähigkeiten vor – du versiegelst eine davon, sie zählt dann nicht.</li>
+      <li>🔥 <b>Zusatzmodus Fluchkraft-Runde</b>: Zum Schluss bietet ihr mit dem Restgeld um die Fluchkraft eines Charakters (nur eine pro Spieler). Viel <b>Menge</b> bringt Punkte und hilft energiehungrigen Fähigkeiten, gute <b>Kontrolle</b> gleicht Schwächen aus. Gojos Fluchkraft ist riesig – aber ohne Six Eyes schlecht kontrolliert.</li>
       <li><b>Modus „Mit Ausrüstung“</b>: Nach den Fähigkeiten wird dein Restgeld verdoppelt und ihr ersteigert 3 Ausrüstungen (Waffen, verfluchte Werkzeuge). Am Ende zählen 2 – mit der Spezialkarte <b>Inventory Curse</b> alle 3. Viele Ausrüstungen kontern außerdem, was dein Gegner hat (z. B. <b>Prison Realm</b> gegen Gojo, <b>Inverted Spear of Heaven</b> gegen Fluchtechniken). Passt eine Ausrüstung zu deinen Fähigkeiten oder ihrem ursprünglichen Besitzer, gibt es Bonus.</li>
       <li>Jede Karte hat einen <b>geheimen Wert</b>. Dazu kommen Boni für gleiche <b>Klassen</b>, gleichen <b>Charakter</b>, <b>Kombos</b>, <b>Allrounder</b> und <b>Konter</b>. Manche Fähigkeiten brauchen einen <b>Partner</b> (z. B. Unendlichkeit + Sechs Augen) – lies die Beschreibungen!</li>
       <li>Am Ende siehst du, mit wie viel Prozent der Gesamtstärke du gewonnen oder verloren hast.</li>
@@ -727,6 +793,16 @@
       else if (f.equip.length < Game.equipAllowed(state, me)) f.equip.push(id);
       else { f.equip.shift(); f.equip.push(id); }
       renderFinal();
+    } else if (act === 'seal-pick') {
+      const id = el.dataset.id;
+      ui.sealPick = ui.sealPick || [];
+      if (ui.sealPick.includes(id)) ui.sealPick = ui.sealPick.filter((x) => x !== id);
+      else { ui.sealPick.push(id); if (ui.sealPick.length > 2) ui.sealPick.shift(); }
+      renderSeal();
+    } else if (act === 'seal-offer') {
+      doAction({ type: 'sealOptions', ids: ui.sealPick || [] });
+    } else if (act === 'seal-choose') {
+      doAction({ type: 'seal', id: el.dataset.id });
     } else if (act === 'final' && ui.final) {
       const f = ui.final;
       doAction({ type: 'final', sacrifice: f.noVow ? null : f.sacrifice, target: f.noVow ? null : f.target, equipUse: f.equip });
@@ -743,6 +819,6 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
   window.addEventListener('beforeunload', (e) => {
-    if (state && ['auction', 'intermission', 'final'].includes(state.phase)) { e.preventDefault(); e.returnValue = ''; }
+    if (state && ['auction', 'intermission', 'final', 'seal'].includes(state.phase)) { e.preventDefault(); e.returnValue = ''; }
   });
 })();
