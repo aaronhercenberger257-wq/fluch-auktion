@@ -25,7 +25,6 @@ const piecewise = (oldSeg, newSeg) => (f) => {
   return f;
 };
 const DOMAIN_T = piecewise([1, 43, 63, 111, 139, 181, 247, 289], [1, 61, 85, 151, 191, 281, 381, 433]);
-const MAHO_T = piecewise([1, 61, 145], [1, 97, 217]);
 
 // ───────── Spur zusammensetzen ─────────
 class Track {
@@ -216,34 +215,149 @@ const DOMAINS = {
     } },
 };
 
-// ───────── Mahoraga ─────────
+// ───────── Mahoraga (15,5 s, 372 Bilder, gleiche Bildnummern wie blender/mahoraga.py) ─────────
 function mahoraga(win) {
-  const tr = new Track(9, MAHO_T);
-  tr.span(1, 18, drone(46, "saw", 260), 0.6);
-  tr.at(4, R("charge_up", 300), 0.6);
-  tr.span(18, 56, (s) => mix(s, [[drone(36, "saw", 220)(s), 0, 1], [wind(12, 400)(s), 0, 0.6]]), 0.9);
-  tr.at(18, R("void_pulse", 301), 1.0);
-  tr.at(54, thud(302), 1.0);
-  [59, 67].forEach((f, i) => tr.at(f, clunk(303 + i), 1.0));      // das Rad klickt
+  const tr = new Track(15.6, (f) => f);
+  tr.span(1, 36, drone(46, "saw", 260), 0.6);
+  tr.at(10, R("charge_up", 300), 0.6);
+  tr.span(30, 110, (s) => mix(s, [[drone(36, "saw", 220)(s), 0, 1], [wind(12, 400)(s), 0, 0.6]]), 0.9);
+  tr.at(35, R("void_pulse", 301), 1.0);
+  tr.at(66, thud(302), 1.0);
+  tr.at(72, growl(330), 0.8);
+  tr.at(96, clunk(303), 1.0);                                   // das Rad klickt
+  tr.at(111, R("whoosh", 331), 0.9);                            // Megumi springt weg
+  tr.at(126, thud(332), 0.5);
+  tr.span(131, 146, (s) => mix(s, [0, 0.35, 0.7, 1.05].map((t, i) => [thud(333 + i), t, 0.6])), 1.0);   // schwere Schritte
+  tr.at(141, R("whoosh", 337), 1.0);
+  tr.at(149, R("sword_clash", 338), 0.6);
+  tr.at(149, R("slash_hit", 339), 1.0);
+  tr.at(156, R("whoosh", 340), 0.6);
+  tr.at(166, R("whoosh", 341), 0.8);
+  tr.at(176, R("punch_heavy", 342), 1.0);
+  tr.at(186, clunk(343), 1.0);                                  // Anpassung
+  tr.at(197, R("whoosh", 344), 0.9);
+  tr.at(203, R("impact_frame", 345), 0.8);
+  tr.at(203, R("punch_heavy", 346), 0.9);
+  tr.span(204, 216, (s) => lp(noise(s, "brown", 347), 700), 0.6); // Rutschen
+  tr.at(228, R("whoosh", 348), 0.9);
+  tr.at(240, R("punch_heavy", 349), 1.0);
+  tr.at(240, R("impact_frame", 350), 0.7);
+  tr.span(251, 270, drone(41, "saw", 240), 0.5);
+  tr.at(272, R("whoosh", 351), 0.9);
   if (!win) {
-    tr.at(71, R("charge_up", 310), 0.4);
-    tr.at(73, R("whoosh", 311), 1.0);
-    tr.at(77, R("impact_frame", 312), 1.0);
-    tr.at(77, R("punch_heavy", 313), 1.0);
-    tr.at(80, R("whoosh", 314), 0.8);
-    tr.at(100, R("explosion", 315), 0.7);
-    tr.at(121, clunk(316), 0.9);
-    tr.span(101, 145, drone(41, "saw", 240), 0.5);
+    tr.at(286, R("punch_heavy", 360), 0.8);
+    tr.at(290, clunk(361), 1.1);
+    tr.at(300, R("charge_up", 362), 0.5);
+    tr.at(306, R("impact_frame", 363), 1.0);
+    tr.at(306, R("punch_heavy", 364), 1.0);
+    tr.at(307, R("whoosh", 365), 1.0);
+    tr.at(328, R("explosion", 366), 0.9);
+    tr.at(328, thud(367), 1.0);
+    tr.at(346, growl(368), 1.0);
+    tr.span(330, 372, drone(41, "saw", 240), 0.5);
   } else {
-    tr.at(64, R("whoosh", 320), 1.0);
-    tr.at(75, R("impact_frame", 321), 1.0);
-    tr.at(75, R("energy_release", 322), 0.9);
-    tr.at(76, R("punch_heavy", 323), 1.0);
-    tr.span(76, 90, crackle(324, 120), 0.7);
-    tr.at(96, thud(325), 1.0);
-    tr.at(97, R("holy_shimmer", 326), 0.9);
-    tr.at(104, chord([261.6, 329.6, 392, 523.3]), 0.7);
+    tr.at(284, R("slash_hit", 370), 0.9);
+    tr.at(288, R("whoosh", 371), 1.0);
+    tr.at(292, R("impact_frame", 372), 1.0);
+    tr.at(292, R("energy_release", 373), 0.9);
+    tr.at(293, R("punch_heavy", 374), 1.0);
+    tr.span(293, 306, crackle(375, 120), 0.7);
+    tr.at(312, thud(376), 0.7);
+    tr.at(330, thud(377), 1.0);
+    tr.at(334, R("holy_shimmer", 378), 0.9);
+    tr.at(342, chord([261.6, 329.6, 392, 523.3]), 0.7);
   }
+  return tr.render();
+}
+
+
+// ───────── Deadly Sentencing: Waage (9 s, 216 Bilder, gleiche Bildnummern wie blender/extras.py) ─────────
+const creak = (seed) => master(mul(bp(osc(0.9, (t) => 180 + 60 * Math.sin(t * 9), "saw"), 900, 3), env(0.9, (t) => Math.sin(Math.PI * t / 0.9) * 0.6)));
+function verdictTrack(variant) {
+  const level = { up3: -3, up2: -2, up1: -1, even: 0, down1: 1, down2: 2, down3: 3, exec: 3 }[variant];
+  const tr = new Track(9.1, (f) => f);
+  tr.span(1, 216, drone(55, "tri", 400), 0.5);
+  tr.at(30, R("charge_up", 400), 0.5);
+  tr.at(38, R("chain_rattle", 401), 0.7);
+  tr.at(52, R("whoosh", 402), 0.7);
+  tr.at(62, thud(403), 1.1);
+  tr.at(62, bell(196), 0.4);
+  tr.at(64, R("chain_rattle", 404), 0.8);
+  tr.at(100, creak(405), 0.9);
+  tr.at(126, creak(406), 0.8);
+  tr.at(128, R("chain_rattle", 407), 0.9);
+  tr.at(166, knock(408), 1.2);                  // Higurumas Hammer
+  tr.at(167, R("impact_frame", 409), 0.6);
+  if (level > 0) {
+    tr.span(140, 216, crackle(410, 30 + 30 * level), 0.4 + 0.15 * level);
+    tr.at(170, chord([110, 116.5, 164.8]), 0.8);
+    tr.at(170, R("void_pulse", 411), 0.7);
+  } else if (level < 0) {
+    tr.at(150, R("holy_shimmer", 412), 0.9);
+    tr.at(170, chord([261.6, 329.6, 392, 523.3]), 0.7);
+  } else {
+    tr.at(170, bell(392), 0.6);
+  }
+  if (variant === "exec") {
+    tr.at(180, R("energy_release", 413), 0.8);
+    tr.at(190, R("whoosh", 414), 1.0);
+    tr.at(193, R("slash_hit", 415), 1.0);
+    tr.at(193, R("impact_frame", 416), 1.0);
+    tr.at(195, glassBreak(417), 0.9);
+  }
+  return tr.render();
+}
+
+// ───────── Hakari zieht den Hebel (2,5 s) ─────────
+function spinTrack() {
+  const tr = new Track(2.6, (f) => f);
+  tr.span(1, 60, arcade(420), 0.5);
+  tr.at(14, R("whoosh", 421), 0.6);
+  tr.at(18, clunk(422), 1.0);
+  tr.span(20, 60, (s) => mul(hp(noise(s, "white", 423), 2500), env(s, (t) => 0.25 + 0.1 * Math.sin(t * 60))), 0.6);
+  tr.at(25, R("charge_up", 424), 0.5);
+  return tr.render();
+}
+
+
+// ───────── Sukuna isst Finger (8 s, 192 Bilder; Aura ab Bild 112) ─────────
+function fingerTrack(n) {
+  const tr = new Track(8.1, (f) => f);
+  const catches = [80, 88, 96].slice(0, n);
+  const last = catches[catches.length - 1];
+  tr.span(1, 192, drone(41, "saw", 240), 0.5);
+  tr.at(44, R("whoosh", 430), 0.9);
+  tr.span(52, 68, wind(431, 700), 0.6);
+  catches.forEach((f, i) => { tr.at(f, R("punch_light", 432 + i), 1.0); tr.at(f, thud(435 + i), 0.6); });
+  tr.at(last + 5, R("punch_light", 437), 0.6);   // Schlucken
+  tr.at(104, R("charge_up", 438), 0.8);
+  tr.at(112, R("energy_release", 439), 1.0);
+  tr.at(112, R("impact_frame", 440), 0.8);
+  tr.span(112, 192, crackle(441, 40 + 20 * n), 0.5 + 0.1 * n);
+  tr.span(112, 192, wind(442, 500), 0.5);
+  tr.at(116, chord([73.4, 77.8, 110]), 0.8);
+  return tr.render();
+}
+
+// ───────── Nobaras Resonanz (9 s, 216 Bilder) ─────────
+function resonanceTrack() {
+  const tr = new Track(9.1, (f) => f);
+  tr.span(1, 110, wind(450, 600), 0.4);
+  tr.at(30, R("whoosh", 451), 0.7);
+  tr.span(32, 54, drone(98, "tri", 600), 0.4);
+  tr.at(50, R("whoosh", 452), 0.8);
+  tr.at(55, R("sword_clash", 453), 1.0);
+  tr.at(55, R("impact_frame", 454), 0.9);
+  tr.at(57, R("whoosh", 455), 0.8);
+  tr.at(63, R("punch_heavy", 456), 1.0);
+  tr.at(63, glassBreak(457), 0.5);
+  [63, 71, 79, 87].forEach((f, i) => tr.at(f, R("void_pulse", 458 + i), 0.6));
+  tr.at(110, R("whoosh", 462), 0.6);
+  tr.span(111, 216, drone(46, "saw", 260), 0.6);
+  tr.at(120, R("impact_frame", 463), 1.0);
+  tr.at(121, R("punch_heavy", 464), 0.9);
+  tr.at(124, growl(465), 0.9);
+  tr.at(134, thud(466), 1.0);
   return tr.render();
 }
 
@@ -263,6 +377,30 @@ for (const [name, w] of [["mahoraga_win", true], ["mahoraga_lose", false]]) {
   fs.writeFileSync(path.join(OUT, name + ".wav"), wav(sig));
   report.push(name + ": " + JSON.stringify(analyze(sig)));
   console.log("ok", name);
+}
+for (const v of ["up3", "up2", "up1", "even", "down1", "down2", "down3", "exec"]) {
+  const sig = verdictTrack(v);
+  fs.writeFileSync(path.join(OUT, "verdict_" + v + ".wav"), wav(sig));
+  report.push("verdict_" + v + ": " + JSON.stringify(analyze(sig)));
+  console.log("ok", "verdict_" + v);
+}
+for (const n of [1, 2, 3]) {
+  const sig = fingerTrack(n);
+  fs.writeFileSync(path.join(OUT, "finger_" + n + ".wav"), wav(sig));
+  report.push("finger_" + n + ": " + JSON.stringify(analyze(sig)));
+  console.log("ok", "finger_" + n);
+}
+{
+  const sig = resonanceTrack();
+  fs.writeFileSync(path.join(OUT, "resonance.wav"), wav(sig));
+  report.push("resonance: " + JSON.stringify(analyze(sig)));
+  console.log("ok", "resonance");
+}
+{
+  const sig = spinTrack();
+  fs.writeFileSync(path.join(OUT, "hakari_spin.wav"), wav(sig));
+  report.push("hakari_spin: " + JSON.stringify(analyze(sig)));
+  console.log("ok", "hakari_spin");
 }
 fs.writeFileSync(path.join(OUT, "_report.txt"), report.join("\n") + "\n");
 console.log(report.join("\n"));

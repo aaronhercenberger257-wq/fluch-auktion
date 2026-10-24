@@ -1,22 +1,30 @@
+"""Posen-Test: eine Figur in mehreren Posen (Bild je Pose, Vorder- und Seitenansicht).
+  blender -b --factory-startup -P blender/posetest.py -- <ordner> <figur>"""
 import bpy, sys, os, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import animelib as A, chars as C, cast
-out = sys.argv[sys.argv.index('--') + 1]
-A.reset_scene(); A.setup_render(1, res=(1600, 600), samples=8, motion_blur=False)
-A.set_world_color((0.06, 0.07, 0.1), 1.0); A.sun(3.0)
-tests = [
-  ('rest', {}),
-  ('ux-60', {'upper.R': (-60, 0, 0)}),
-  ('ux+60', {'upper.R': (60, 0, 0)}),
-  ('uz-60', {'upper.R': (0, 0, -60)}),
-  ('uz+60', {'upper.R': (0, 0, 60)}),
-  ('sign', {'upper.R': (-70, 0, 25), 'fore.R': (-110, 0, 0)}),
-  ('fx-90', {'fore.R': (-90, 0, 0)}),
-  ('spine', {'spine': (20, 0, 0), 'head': (20, 0, 0)}),
-]
-for i, (n, p) in enumerate(tests):
-    f = cast.build_char('gojo', 'T%d' % i, loc=((i - 3.5) * 0.9, 0, 0), facing=math.radians(-35))
-    C.pose(f, 1, **p)
-cam, tgt = A.camera(lens=30)
-A.cam_key(cam, tgt, 1, (0, -8, 1.2), (0, 0, 1.1), 30)
-bpy.context.scene.frame_set(1); bpy.context.scene.render.filepath = out; bpy.ops.render.render(write_still=True)
+import animelib as A
+import chars as C
+import cast
+import fight as FT
+
+argv = sys.argv[sys.argv.index('--') + 1:]
+out, who = argv[0], argv[1]
+names = argv[2].split(',') if len(argv) > 2 else list(FT.POSES)
+A.reset_scene()
+A.setup_render(len(names), res=(640, 640), samples=8, motion_blur=False)
+A.set_world_color((0.55, 0.58, 0.64), 1.0)
+A.sun(3.0)
+A.ink()
+f = cast.build_char(who, 'T', loc=(0, 0, 0), facing=0)
+sc = f['arm'].scale.z
+for i, n in enumerate(names):
+    FT.apply(f, i + 1, n)
+cam, tgt = A.camera(lens=35)
+s = bpy.context.scene
+for i, n in enumerate(names):
+    for tag, pos in (('front', (0.6 * sc, -4.6 * sc, 1.2 * sc)), ('side', (4.6 * sc, -0.4 * sc, 1.2 * sc))):
+        A.cam_key(cam, tgt, 1, pos, (0, 0, 0.95 * sc), 35)
+        s.frame_set(i + 1)
+        s.render.filepath = os.path.join(out, 'frame_%02d_%s_%s.png' % (i, n, tag))
+        bpy.ops.render.render(write_still=True)
+print('FERTIG')

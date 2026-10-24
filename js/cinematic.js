@@ -198,12 +198,13 @@
   // Zeiten in Sekunden: wann welche Schrift über dem Video erscheint
   // Alle Videos folgen derselben Dramaturgie (blender/scenes.py) → gleiche Schrift-Zeitpunkte
   const CUES = [['s3', 3.55], ['s4', 6.3], ['s5', 7.95], ['s7', 15.9]];   // 18-s-Fassung
+  // Domain → Szene (ein Video pro Domain, der Gegner ist immer derselbe Fluch-Krieger)
   const VIDEOS = {};
   Object.entries({
     'unendliche-leere': 'void', 'boeser-schrein': 'shrine', 'chimaera-garten': 'shadow', 'selbstverkoerperung': 'hands',
     'sarg-eisenberg': 'volcano', 'todesurteil': 'court', 'idle-death-gamble': 'gamble', 'authentische-liebe': 'swords',
     'skandha': 'beach', 'zeitzellen-palast': 'frames',
-  }).forEach(([dom, file]) => { VIDEOS[dom] = { src: 'video/' + file + '.mp4', cues: CUES }; });
+  }).forEach(([dom, file]) => { VIDEOS[dom] = { src: 'video/' + file + '.mp4?v=4', cues: CUES }; });
 
   function playVideo(container, o, v, onDone) {
     const D = DOMAINS[o.winnerDomain];

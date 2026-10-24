@@ -218,6 +218,26 @@
         if (state.phase === 'ritual') { Game.act(state, 0, { type: 'ritualDone' }); broadcast(); }
       }, 18000);
     }
+    // Host: Finger-Mahl / Resonanz automatisch weiter (falls keiner klickt)
+    if (state.phase === 'feast' && state.feast && state.feast.fingers && !ui.feastTimer) {
+      ui.feastTimer = setTimeout(() => {
+        ui.feastTimer = null;
+        if (state.phase === 'feast') { Game.act(state, 0, { type: 'feastDone' }); broadcast(); }
+      }, 32000);
+    }
+    if (state.phase === 'resonance' && !ui.resTimer) {
+      ui.resTimer = setTimeout(() => {
+        ui.resTimer = null;
+        if (state.phase === 'resonance') { Game.act(state, 0, { type: 'resonanceDone' }); broadcast(); }
+      }, 26000);
+    }
+    // Host: nach dem Urteil automatisch weiter (nur wenn nichts mehr zu versiegeln ist)
+    if (state.phase === 'verdict' && state.verdict && !(state.verdict.needSeal && !state.verdict.sealed) && !ui.verdictTimer) {
+      ui.verdictTimer = setTimeout(() => {
+        ui.verdictTimer = null;
+        if (state.phase === 'verdict') { Game.act(state, 0, { type: 'verdictDone' }); broadcast(); }
+      }, 30000);
+    }
     // Host: nach dem Domain Clash automatisch weiter (falls keiner klickt)
     if (state.phase === 'clash' && state.clash && state.clash.done && !ui.clashTimer) {
       ui.clashTimer = setTimeout(() => {
@@ -277,7 +297,7 @@
     if (state.gameId !== ui.gameId) {
       ui.gameId = state.gameId;
       ui.lastRound = null; ui.slotCounts = [0, 0, 0, 0]; ui.lastHigh = null;
-      ui.lastEv = state.evSeq; ui.final = null; ui.rematchSent = null; ui.sealPick = null; ui.spinSeen = 0; ui.spinning = false;
+      ui.lastEv = state.evSeq; ui.final = null; ui.rematchSent = null; ui.sealPick = null; ui.spinSeen = 0; ui.spinning = false; ui.verdictShown = null; ui.verdictDone = null; ui.wheelShown = null; ui.feastClip = null; ui.feastDone = null; ui.resShown = null; ui.resDone = null;
     }
     announceEvents();
     if (state.phase === 'coin') renderCoin();
@@ -288,6 +308,9 @@
     else if (state.phase === 'gamble') { if (!ui.spinning) renderGamble(); }
     else if (state.phase === 'clash') renderClash();
     else if (state.phase === 'ritual') renderRitual();
+    else if (state.phase === 'verdict') renderVerdict();
+    else if (state.phase === 'feast') renderFeast();
+    else if (state.phase === 'resonance') renderResonance();
     else if (state.phase === 'result') renderResult();
   }
 
@@ -310,6 +333,10 @@
       if (ev.kind === 'clashwin') return ev.player === me ? 'Du gewinnst den Domain Clash!' : `${who} gewinnt den Domain Clash!`;
       if (ev.kind === 'gamblestart') return ev.player === me ? 'Der Automat von Idle Death Gamble wartet auf dich 🎰' : `${who} tritt an den Automaten 🎰`;
       if (ev.kind === 'sealed') return `${nm} wurde versiegelt 🔒`;
+      if (ev.kind === 'feaststart') return ev.player === me ? 'Du hast Sukunas Finger – dreh das Glücksrad! 👆' : `${who} hat Sukunas Finger – das Glücksrad dreht sich …`;
+      if (ev.kind === 'resonance') return ev.player === me ? 'Resonanz! Dein Nagel trifft Sukunas Finger 🔨' : `${who} trifft Sukunas Finger mit einem Nagel 🔨`;
+      if (ev.kind === 'verdictstart') return 'Deadly Sentencing – die Waage entscheidet ⚖';
+      if (ev.kind === 'verdictsealed') return `Urteil: ${nm} wurde versiegelt ⚖🔒`;
       return null;
     }).filter(Boolean);
     if (texts.length) toast(texts.join(' · '));
@@ -411,6 +438,7 @@
         ${tags || it.hungry ? `<div class="chips">${tags}${it.hungry ? '<span class="chip hungry" title="Profitiert von viel Fluchkraft">🔥 Energiehungrig</span>' : ''}</div>` : ''}
         ${it.type === 'energy' ? energyChips(it) : ''}
         ${it.effect ? `<p class="effect">✦ ${esc(it.effect)}</p>` : ''}
+        ${it.karma !== undefined ? karmaChip(it.karma) : ''}
         <details class="desc" ${opts.open ? 'open' : ''}>
           <summary>Beschreibung</summary>
           <p>${esc(it.desc)}</p>
@@ -418,6 +446,13 @@
         </details>
       </div>
     </article>`;
+  }
+
+  // Gut/Böse-Anzeige für die Waage von Deadly Sentencing (nur Richtung, keine Zahl)
+  function karmaChip(k) {
+    const t = k >= 4 ? ['sehr böse', 'evil2'] : k >= 2 ? ['böse', 'evil1'] : k >= 1 ? ['eher böse', 'evil1'] : k <= -3 ? ['sehr gut', 'good2']
+      : k <= -1 ? ['gut', 'good1'] : ['neutral', 'neutral'];
+    return `<p class="karma ${t[1]}" title="Zählt auf der Waage von „Deadly Sentencing“">⚖ Gesinnung: <b>${t[0]}</b></p>`;
   }
 
   function miniItem(id, extra) {
@@ -615,7 +650,7 @@
       document.body.appendChild(layer);
       const who = mine ? 'Du' : esc(owner.name);
       Cinematic.playClip(layer, {
-        src: R.success ? 'video/mahoraga_win.mp4' : 'video/mahoraga_lose.mp4',
+        src: R.success ? 'video/mahoraga_win.mp4?v=3' : 'video/mahoraga_lose.mp4?v=3',
         title: R.success ? 'BEZWUNGEN!' : 'WEGGESCHLAGEN!',
         sub: R.success ? `${who} ${mine ? 'hast' : 'hat'} Mahoraga besiegt – er kämpft jetzt mit voller Kraft.` : `Mahoraga hat ${mine ? 'dich' : esc(owner.name)} weggeschlagen.`,
         color: R.success ? '#fbbf24' : '#e5e7eb',
@@ -643,6 +678,136 @@
     $('#game').innerHTML = `<div class="final"><div class="seal-box ritual-box">
       <div class="seal-cube">${art(card, 'mh')}</div>
       <h2 class="final-title">Mahoraga</h2>${body}</div></div>`;
+  }
+
+  // ───────── Sukunas Finger: Glücksrad + Clip ─────────
+  const WHEEL = [{ n: 1, from: 0, to: 180 }, { n: 2, from: 180, to: 299 }, { n: 3, from: 299, to: 360 }];
+  function renderFeast() {
+    const Fe = state.feast;
+    const mine = Fe.player === me;
+    const owner = state.players[Fe.player];
+    const wheel = `<div class="fwheel-wrap"><div class="fwheel-pointer">▼</div>
+      <div class="fwheel" id="fwheel">${WHEEL.map((w) => `<span class="fw-lbl" style="--a:${(w.from + w.to) / 2}deg">${w.n} 👆</span>`).join('')}</div></div>`;
+    let body;
+    if (!Fe.fingers) {
+      body = `<p>${mine ? 'Du hast' : esc(owner.name) + ' hat'} <b>Malevolent Shrine</b>, <b>Dismantle & Cleave</b>, <b>Fuga</b> – und <b>Sukunas Finger</b>.
+        Das Glücksrad entscheidet, wie viele Finger Sukuna isst (höchstens 3). Jeder Finger macht seine Techniken viel stärker.</p>${wheel}
+        ${mine ? '<button class="btn btn-primary btn-big" data-action="feast-spin">🎡 Glücksrad drehen</button>' : '<div class="inter-bar wait"><span></span></div>'}`;
+    } else if (ui.feastDone !== state.gameId) {
+      body = `<p>Das Rad dreht sich …</p>${wheel}`;
+    } else {
+      body = `<p class="verdict-res lvl3"><b>${Fe.fingers} FINGER</b><br>Sukuna hat ${Fe.fingers === 1 ? 'einen Finger' : Fe.fingers + ' Finger'} gegessen – seine Techniken werden viel stärker.</p>
+        <button class="btn btn-primary btn-big" data-action="feast-done">Weiter</button>`;
+    }
+    $('#game').innerHTML = `<div class="final"><div class="seal-box verdict-box feast-box">
+      <div class="seal-cube">${art(item('sukuna-finger'), 'fe')}</div>
+      <h2 class="final-title">Sukunas Finger</h2>${body}</div></div>`;
+    if (Fe.fingers && ui.wheelShown !== state.gameId) {
+      ui.wheelShown = state.gameId;
+      const seg = WHEEL[Fe.fingers - 1];
+      const mid = (seg.from + seg.to) / 2 + (Math.random() - 0.5) * (seg.to - seg.from) * 0.6;
+      const el = document.querySelector('#fwheel');
+      requestAnimationFrame(() => { if (el) el.style.transform = `rotate(${360 * 6 - mid}deg)`; });
+      setTimeout(() => {
+        const layer = document.createElement('div');
+        document.body.appendChild(layer);
+        Cinematic.playClip(layer, {
+          src: `video/finger_${Fe.fingers}.mp4?v=3`,
+          title: `👆 ${Fe.fingers} FINGER`,
+          sub: `${mine ? 'Dein' : esc(owner.name) + 's'} Sukuna isst ${Fe.fingers === 1 ? 'einen Finger' : Fe.fingers + ' Finger'}!`,
+          color: '#ef4444',
+        }, () => { layer.remove(); ui.feastDone = state.gameId; if (state.phase === 'feast') renderFeast(); });
+      }, 4200);
+    } else if (Fe.fingers && ui.wheelShown === state.gameId) {
+      const seg = WHEEL[Fe.fingers - 1];
+      const el = document.querySelector('#fwheel');
+      if (el) { el.style.transition = 'none'; el.style.transform = `rotate(${360 * 6 - (seg.from + seg.to) / 2}deg)`; }
+    }
+  }
+
+  // ───────── Nobaras Resonanz ─────────
+  function renderResonance() {
+    const R = state.resonance;
+    const mine = R.player === me;
+    if (ui.resShown !== state.gameId) {
+      ui.resShown = state.gameId;
+      const layer = document.createElement('div');
+      document.body.appendChild(layer);
+      Cinematic.playClip(layer, {
+        src: 'video/resonance.mp4?v=3',
+        title: '🔨 RESONANZ!',
+        sub: mine ? 'Dein Nagel trifft Sukunas Finger – er muss in die Knie!' : 'Ein Nagel durch Sukunas Finger – deine Sukuna-Techniken zählen nur halb!',
+        color: '#fb7185',
+      }, () => { layer.remove(); ui.resDone = state.gameId; if (state.phase === 'resonance') renderResonance(); });
+    }
+    const body = `<p class="verdict-res lvl1"><b>RESONANZ</b><br>${mine ? 'Straw Doll + Hammer & Nails + Sukunas Finger: Die Sukuna-Techniken deines Gegners zählen nur noch halb.'
+      : 'Nobaras Resonanz trifft dich: Deine Sukuna-Techniken zählen nur noch halb.'}</p>
+      ${ui.resDone === state.gameId ? '<button class="btn btn-primary btn-big" data-action="resonance-done">Weiter</button>' : '<p class="muted">…</p>'}`;
+    $('#game').innerHTML = `<div class="final"><div class="seal-box verdict-box">
+      <div class="seal-cube">${art(item('hammer-naegel'), 'rs')}</div>
+      <h2 class="final-title">Resonanz</h2>${body}</div></div>`;
+  }
+
+  // ───────── Deadly Sentencing: die Waage ─────────
+  const VERDICT_TEXT = {
+    3: ['TODESURTEIL', 'Die Waage kracht ganz nach unten – der Angeklagte ist durch und durch böse.'],
+    2: ['SCHWER SCHULDIG', 'Die Waage sinkt tief – viel Böses auf der Schale.'],
+    1: ['SCHULDIG', 'Die Waage sinkt ein wenig.'],
+    0: ['FREISPRUCH', 'Die Waage bleibt im Gleichgewicht.'],
+    '-1': ['UNSCHULDIG', 'Das Gesetzbuch wiegt schwerer – der Angeklagte ist eher gut.'],
+    '-2': ['GUTES HERZ', 'Die Schale des Angeklagten steigt weit nach oben.'],
+    '-3': ['REINES GEWISSEN', 'Die Schale schnellt ganz nach oben – reiner geht es nicht.'],
+  };
+  function verdictClip(V) {
+    if (V.level === 3 && V.sword) return 'verdict_exec';
+    return 'verdict_' + (V.level > 0 ? 'down' + V.level : V.level < 0 ? 'up' + -V.level : 'even');
+  }
+  function verdictEffect(V, iJudge) {
+    const J = iJudge ? 'Du' : esc(state.players[V.judge].name), A = iJudge ? esc(state.players[V.accused].name) : 'Du';
+    if (V.level === 3 && V.sword) return `<b>Henkersschwert!</b> ${J} ${iJudge ? 'gewinnst' : 'gewinnt'} den Domain Clash <b>ohne Kampf</b> – und ${A === 'Du' ? 'deine' : 'die'} Gesamtpunkte ${A === 'Du' ? '' : 'von ' + A + ' '}werden <b>halbiert</b>.`;
+    if (V.level === 3) return `${J} ${iJudge ? 'wirst' : 'wird'} <b>stark verstärkt</b>, ${iJudge ? 'dein' : 'sein'} Black Flash im Domain Clash zählt mehr – und ${iJudge ? 'du darfst' : 'er darf'} <b>eine Sache versiegeln</b> (alles außer der Domain).`;
+    if (V.level === 2) return `Alle Fähigkeiten von ${iJudge ? 'dir' : J} werden stärker. Die stärkste Fluchtechnik des Angeklagten wird beschlagnahmt.`;
+    if (V.level === 1) return `„Deadly Sentencing“ wird stärker. Die stärkste Fluchtechnik des Angeklagten wird beschlagnahmt.`;
+    if (V.level === 0) return 'Nichts passiert – auch keine Beschlagnahmung.';
+    if (V.level === -3) return `${A} ${A === 'Du' ? 'wirst' : 'wird'} stark verstärkt – ${A === 'Du' ? 'deine' : 'seine'} Domain zählt sogar <b>doppelt so viel</b> wie die des Richters, selbst wenn der Domain Clash verloren geht.`;
+    return `${A} ${A === 'Du' ? 'wirst' : 'wird'} stärker${V.level === -2 ? ' (deutlich)' : ' (etwas)'}. Keine Beschlagnahmung.`;
+  }
+  function renderVerdict() {
+    const V = state.verdict;
+    const iJudge = V.judge === me;
+    if (ui.verdictShown !== state.gameId) {
+      ui.verdictShown = state.gameId;
+      const layer = document.createElement('div');
+      document.body.appendChild(layer);
+      const T = VERDICT_TEXT[V.level];
+      Cinematic.playClip(layer, {
+        src: 'video/' + verdictClip(V) + '.mp4?v=3',
+        title: '⚖ ' + T[0],
+        sub: T[1],
+        color: V.level > 0 ? '#f87171' : V.level < 0 ? '#86efac' : '#fde68a',
+      }, () => { layer.remove(); ui.verdictDone = state.gameId; if (state.phase === 'verdict') renderVerdict(); });
+    }
+    const T = VERDICT_TEXT[V.level];
+    const accused = state.players[V.accused];
+    let body = `<p class="verdict-res lvl${V.level}"><b>⚖ ${T[0]}</b><br>${T[1]}</p>
+      <p>${iJudge ? `Angeklagt: <b>${esc(accused.name)}</b>.` : 'Du stehst auf der Waage.'}<br>${verdictEffect(V, iJudge)}</p>`;
+    if (ui.verdictDone !== state.gameId) {
+      body += '<p class="muted">Das Urteil wird verkündet …</p>';
+    } else if (V.needSeal && !V.sealed) {
+      if (iJudge) {
+        const tiles = V.options.map((id) => `<button class="pick" data-action="verdict-seal" data-id="${id}">
+          <span class="thumb">${art(item(id), 'vs' + id)}</span><b>${esc(item(id).name)}</b><em>versiegeln</em></button>`).join('');
+        body += `<p><b>Was versiegelst du?</b> Es zählt dann gar nicht mehr.</p><div class="picks">${tiles}</div>`;
+      } else {
+        body += `<p>${esc(state.players[V.judge].name)} wählt, was von dir versiegelt wird …</p><div class="inter-bar wait"><span></span></div>`;
+      }
+    } else {
+      if (V.sealed) body += `<p>🔒 Versiegelt: <b>${esc(item(V.sealed).name)}</b></p>`;
+      body += '<button class="btn btn-primary btn-big" data-action="verdict-done">Weiter</button>';
+    }
+    $('#game').innerHTML = `<div class="final"><div class="seal-box verdict-box">
+      <div class="seal-cube">${art(item('todesurteil'), 'vd')}</div>
+      <h2 class="final-title">Deadly Sentencing</h2>${body}</div></div>`;
   }
 
   // ───────── Domain Clash (Sure-Hit-Timing) ─────────
@@ -805,14 +970,7 @@
   function renderGamble() {
     const G = state.gamble;
     const owner = state.players[G.player];
-    if (G.player !== me) {
-      $('#game').innerHTML = `<div class="final"><div class="seal-box gamble-box">
-        <div class="slot-lights"></div>
-        <h2 class="final-title">Idle Death Gamble</h2>
-        <p>🎰 ${esc(owner.name)} dreht am Automaten … <br><span class="muted">Was dabei herauskommt, bleibt bis zur Auswertung geheim.</span></p>
-        <div class="inter-bar wait"><span></span></div></div></div>`;
-      return;
-    }
+    const watcher = G.player !== me;
     const seen = ui.spinSeen || 0;
     const fresh = G.spins.length > seen;
     const shown = fresh ? G.spins.slice(0, seen) : G.spins;
@@ -824,7 +982,10 @@
     if (doneShown) {
       const res = G.outcome === 'jackpot' ? 'Jackpot!' : G.outcome === 'reach' ? 'Du nimmst den Trostpreis „Reach“ mit.' : G.outcome === 'fever' ? 'Du nimmst den Trostpreis „Fever“ mit.'
         : G.outcome === 'miss' ? 'Alle Spins verbraucht – alles wird 5 % schwächer.' : 'Du hast aufgehört – kein Gewinn, keine Strafe.';
-      actions = `<p class="gamble-res ${G.outcome}">${res}</p><button class="btn btn-primary btn-big" data-action="gamble-done">Weiter zur Auswertung</button>`;
+      actions = `<p class="gamble-res ${G.outcome}">${res}</p>${watcher ? `<p class="muted">${esc(owner.name)} beendet den Automaten …</p>`
+        : '<button class="btn btn-primary btn-big" data-action="gamble-done">Weiter zur Auswertung</button>'}`;
+    } else if (watcher) {
+      actions = `<p class="muted">🎰 ${esc(owner.name)} entscheidet: weiterdrehen oder aufhören …</p>`;
     } else {
       actions = `<div class="actions">
           <button class="btn btn-secondary" data-action="stop-spin" ${ui.spinning ? 'disabled' : ''}>Aufhören${last === 'reach' || last === 'fever' ? ' & Preis nehmen' : ''}</button>
@@ -834,13 +995,30 @@
     $('#game').innerHTML = `<div class="final"><div class="seal-box gamble-box">
       <div class="slot-lights ${last === 'jackpot' && !fresh ? 'win' : ''}"></div>
       <h2 class="final-title">Idle Death Gamble</h2>
-      <p class="muted">Nur du siehst den Automaten. ${G.total} Spins${G.total > 3 ? ' (inkl. 2 von „Rough Energy“)' : ''}.</p>
+      <p class="muted">${watcher ? `${esc(owner.name)} dreht – ihr seht beide zu.` : 'Dein Gegner sieht zu.'} ${G.total} Spins${G.total > 3 ? ' (inkl. 2 von „Rough Energy“)' : ''}.</p>
+      <video class="spin-clip" id="spin-clip" src="video/hakari_spin.mp4?v=3" playsinline preload="auto" muted hidden></video>
       <div class="machine"><div class="reels">${face.map((f, i) => `<div class="reel" id="reel${i}"><span>${f}</span></div>`).join('')}</div></div>
       <div class="spin-log">${G.spins.slice(0, shown.length).map((r, i) => `<span class="pip ${r}" title="Spin ${i + 1}">${i + 1}</span>`).join('')}${Array.from({ length: G.total - shown.length }, () => '<span class="pip"></span>').join('')}</div>
-      ${info && !fresh ? `<div class="gamble-info ${last}"><b>${info.title}</b><p>${info.text}</p></div>` : '<div class="gamble-info"><p>Chancen pro Spin: ca. <b>15 %</b> Jackpot · <b>17 %</b> Reach · <b>13 %</b> Fever · sonst nichts.</p></div>'}
+      ${info && !fresh ? `<div class="gamble-info ${last}"><b>${info.title}</b><p>${info.text}</p></div>` : '<div class="gamble-info"><p>Chancen pro Spin: ca. <b>11 %</b> Jackpot · <b>17 %</b> Reach · <b>13 %</b> Fever · sonst nichts.</p></div>'}
       ${actions}
     </div></div>`;
-    if (fresh && !ui.spinning) animateSpin(G.spins[seen], seen + 1);
+    if (fresh && !ui.spinning) playSpinClip(() => animateSpin(G.spins[seen], seen + 1));
+  }
+
+  function playSpinClip(then) {
+    const v = document.querySelector('#spin-clip');
+    if (!v) return then();
+    ui.spinning = true;
+    renderGambleButtonsDisabled();
+    let done = false;
+    const go = () => { if (done) return; done = true; v.hidden = true; ui.spinning = false; then(); };
+    v.hidden = false;
+    v.muted = false;
+    v.addEventListener('ended', go);
+    v.addEventListener('error', go);
+    setTimeout(go, 4500);
+    const p = v.play();
+    if (p && p.catch) p.catch(() => { v.muted = true; v.play().catch(go); });
   }
 
   function animateSpin(outcome, n) {
@@ -1038,12 +1216,17 @@
       <li>📜 <b>Binding Vow</b>: eine Spezialkarte für einen Extra-Slot. Vor der Auswertung opferst du eine Fähigkeit – dafür wird eine andere viel stärker.</li>
       <li>🎲 <b>Sets</b>: Hast du schon Karten eines Charakters (z. B. Gojo), kommen weitere Karten von ihm öfter – je mehr du hast, desto öfter. Hat dein Gegner auch welche, steigt die Chance noch mehr. Pro Spieler zählt nur ein Set: das, von dem noch die meisten Karten im Stapel sind.</li>
       <li>Leere Slots werden am Ende <b>zufällig</b> gefüllt.</li>
-      <li>✦ <b>Spezial-Effekte</b>: Manche Karten wirken direkt auf den Gegner – z. B. <b>Deadly Sentencing</b> beschlagnahmt seine stärkste Fluchtechnik, <b>Cursed Speech</b> stoppt seinen stärksten Kampfskill, <b>Copy</b> kopiert einen Teil seiner stärksten Technik, <b>Boogie Woogie</b> weicht seinem stärksten Konter aus, <b>Reverse Cursed Technique</b> heilt Schwächungen, <b>Idle Death Gamble</b> lässt dich vor der Auswertung am Automaten drehen (siehe unten). Mehrere Karten desselben Charakters (Gojo, Sukuna, Yuta, Megumi …) verstärken sich gegenseitig.</li>
-      <li>🎰 <b>Idle Death Gamble – Automat</b>: Wer die Karte hat, darf vor der Auswertung bis zu 3-mal drehen (mit „Rough Energy“ 5-mal) – nur er sieht den Automaten. Nach jedem Spin entscheidest du: weiter oder aufhören. <b>Jackpot</b> (ca. 15 %): alle Fähigkeiten stärker, deine Fluchkraft doppelt, die des Gegners etwas schwächer – ohne Fluchkraft-Runde zählen deine Domains doppelt. <b>Trostpreise</b> „Reach“ und „Fever“ geben kleine Boni, wenn du danach aufhörst. Hörst du bei „nichts“ auf, passiert nichts – sind aber alle Spins weg und der letzte war eine Niete, wird alles 5 % schwächer.</li>
+      <li>✦ <b>Spezial-Effekte</b>: Manche Karten wirken direkt auf den Gegner – z. B. <b>Deadly Sentencing</b> stellt ihn vor Gericht (siehe Waage unten), <b>Cursed Speech</b> stoppt seinen stärksten Kampfskill, <b>Copy</b> kopiert einen Teil seiner stärksten Technik, <b>Boogie Woogie</b> weicht seinem stärksten Konter aus, <b>Reverse Cursed Technique</b> heilt Schwächungen und macht verwandte Techniken (z. B. Reversal Red, Hollow Purple) stärker und frei von jeder Schwächung, <b>Idle Death Gamble</b> lässt dich vor der Auswertung am Automaten drehen (siehe unten). Mehrere Karten desselben Charakters (Gojo, Sukuna, Yuta, Megumi …) verstärken sich gegenseitig.</li>
+      <li>🎰 <b>Idle Death Gamble – Automat</b>: Wer die Karte hat, darf vor der Auswertung bis zu 3-mal drehen (mit „Rough Energy“ 5-mal) – ihr seht beide zu, wie Hakari den Hebel zieht. Nach jedem Spin entscheidest du: weiter oder aufhören. <b>Jackpot</b> (ca. 11 %): alle Fähigkeiten stärker, deine Fluchkraft doppelt, die des Gegners etwas schwächer – ohne Fluchkraft-Runde zählen deine Domains doppelt. <b>Trostpreise</b> „Reach“ und „Fever“ geben kleine Boni, wenn du danach aufhörst. Hörst du bei „nichts“ auf, passiert nichts – sind aber alle Spins weg und der letzte war eine Niete, wird alles 5 % schwächer.</li>
+      <li>👆 <b>Sukunas Finger</b> (Ausrüstung): Hast du dazu <b>Malevolent Shrine</b>, <b>Dismantle & Cleave</b> und <b>Fuga</b>, isst Sukuna den Finger – ein Glücksrad entscheidet, ob 1, 2 oder 3 Finger (je mehr, desto stärker alle Sukuna-Techniken). Beide sehen zu.</li>
+      <li>🔨 <b>Resonanz</b>: Hast du <b>Straw Doll Technique</b>, <b>Hammer & Nails</b> und <b>Sukunas Finger</b> als Waffen, schlägt Nobara einen Nagel durch den Finger – alle Sukuna-Techniken deines Gegners zählen nur halb.</li>
+      <li>⚖ <b>Deadly Sentencing – die Waage</b>: Jede Karte hat eine <b>Gesinnung</b> (gut oder böse, steht auf der Karte). Vor dem Domain Clash wird alles, was dein Gegner hat, gegen das Gesetzbuch gewogen – beide sehen die Waage.
+        <br>Ist er böse, sinkt seine Schale: <b>ein wenig</b> → deine Domain wird stärker, <b>viel</b> → alle deine Karten werden stärker, <b>ganz</b> → Todesurteil: Hast du das <b>Executioner's Sword</b> ausgewählt, gewinnst du den Domain Clash ohne Kampf und seine Gesamtpunkte werden halbiert. Ohne Schwert wirst du stark verstärkt, dein Black Flash im Clash zählt mehr und du versiegelst eine seiner Sachen (alles außer der Domain). Bei jedem Schuldspruch wird außerdem seine stärkste Fluchtechnik beschlagnahmt.
+        <br>Ist er gut, steigt seine Schale und <b>er</b> wird stärker – ganz oben zählt seine Domain sogar doppelt so viel wie deine, selbst wenn er den Clash verliert.</li>
       <li>☸ <b>Mahoraga</b>: Hast du „Summon Mahoraga“ ohne „Ten Shadows“, entscheidest du vor der Auswertung: <b>beschwören</b> (Kampf – Sieg: er zählt voll; Niederlage: er schlägt dich weg, zählt nicht und schwächt alle deine Fähigkeiten) oder <b>nicht beschwören</b> (er zählt nur halb). Die Siegchance hängt nur von den Grundwerten deiner anderen Fähigkeiten ab.</li>
       <li>⚔ <b>Domain Clash</b>: Haben beide eine Domain, kommt es vor der Auswertung zum Duell. 5 Runden lang saust ein Zeiger über einen Balken – drück, wenn er in deiner <b>Sure-Hit-Zone</b> ist. Je stärker deine Domain und je besser dein Team zu ihr passt, desto größer deine Zone. Genau in der Mitte gibt es einen <b>BLACK FLASH</b> (mit der Fähigkeit „Black Flash“ noch stärker). Simple Domain beim Gegner macht deine Treffer schwächer. Der Sieger bekommt Boni auf alle Fähigkeiten und besonders auf seine Domain.</li>
       <li>🧊 <b>Prison Realm</b> (Ausrüstung): Dein Gegner schlägt 2 seiner Fähigkeiten vor – du versiegelst eine davon, sie zählt dann nicht.</li>
-      <li>🔥 <b>Zusatzmodus Fluchkraft-Runde</b>: Zum Schluss bietet ihr mit dem Restgeld um die Fluchkraft eines Charakters (nur eine pro Spieler). Viel <b>Menge</b> bringt Punkte und hilft energiehungrigen Fähigkeiten, gute <b>Kontrolle</b> gleicht Schwächen aus. Gojos Fluchkraft ist riesig – aber ohne Six Eyes schlecht kontrolliert.</li>
+      <li>🔥 <b>Zusatzmodus Fluchkraft-Runde</b>: Zum Schluss bietet ihr mit dem Restgeld um die Fluchkraft eines Charakters (nur eine pro Spieler). Wer am Ende keine hat – z. B. weil das Geld alle ist –, bekommt eine zufällige. Viel <b>Menge</b> bringt Punkte und hilft energiehungrigen Fähigkeiten, gute <b>Kontrolle</b> gleicht Schwächen aus. Gojos Fluchkraft ist riesig – aber ohne Six Eyes schlecht kontrolliert.</li>
       <li><b>Modus „Mit Ausrüstung“</b>: Nach den Fähigkeiten wird dein Restgeld verdoppelt und ihr ersteigert 3 Ausrüstungen (Waffen, verfluchte Werkzeuge). Am Ende zählen 2 – mit der Spezialkarte <b>Inventory Curse</b> alle 3. Viele Ausrüstungen kontern außerdem, was dein Gegner hat (z. B. <b>Prison Realm</b> gegen Gojo, <b>Inverted Spear of Heaven</b> gegen Fluchtechniken). Passt eine Ausrüstung zu deinen Fähigkeiten oder ihrem ursprünglichen Besitzer, gibt es Bonus.</li>
       <li>Jede Karte hat einen <b>geheimen Wert</b>. Dazu kommen Boni für gleiche <b>Klassen</b>, gleichen <b>Charakter</b>, <b>Kombos</b>, <b>Allrounder</b> und <b>Konter</b>. Manche Fähigkeiten brauchen einen <b>Partner</b> (z. B. Unendlichkeit + Sechs Augen) – lies die Beschreibungen!</li>
       <li>Am Ende siehst du, mit wie viel Prozent der Gesamtstärke du gewonnen oder verloren hast.</li>
@@ -1103,6 +1286,16 @@
       doAction({ type: 'spin' });
     } else if (act === 'stop-spin' && !ui.spinning) {
       doAction({ type: 'stopSpin' });
+    } else if (act === 'feast-spin') {
+      doAction({ type: 'feastSpin' });
+    } else if (act === 'feast-done') {
+      doAction({ type: 'feastDone' });
+    } else if (act === 'resonance-done') {
+      doAction({ type: 'resonanceDone' });
+    } else if (act === 'verdict-seal') {
+      doAction({ type: 'verdictSeal', id: el.dataset.id });
+    } else if (act === 'verdict-done') {
+      doAction({ type: 'verdictDone' });
     } else if (act === 'gamble-done') {
       doAction({ type: 'gambleDone' });
     } else if (act === 'seal-offer') {
@@ -1136,6 +1329,6 @@
   }
 
   window.addEventListener('beforeunload', (e) => {
-    if (state && ['auction', 'intermission', 'final', 'seal', 'ritual', 'gamble', 'clash'].includes(state.phase)) { e.preventDefault(); e.returnValue = ''; }
+    if (state && ['auction', 'intermission', 'final', 'seal', 'ritual', 'gamble', 'feast', 'resonance', 'verdict', 'clash'].includes(state.phase)) { e.preventDefault(); e.returnValue = ''; }
   });
 })();

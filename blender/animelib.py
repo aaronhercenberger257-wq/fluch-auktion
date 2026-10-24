@@ -14,6 +14,79 @@ FPS = 24
 # ───────────────────────── Szene ─────────────────────────
 def reset_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)
+    _mats.clear()
+
+
+# ───────────────────────── Tusche (Freestyle-Linien) ─────────────────────────
+def ink_collection():
+    """Sammlung für alles, was Freestyle-Linien bekommt (Figuren)."""
+    col = bpy.data.collections.get('Ink')
+    if not col:
+        col = bpy.data.collections.new('Ink')
+        bpy.context.scene.collection.children.link(col)
+    return col
+
+
+def no_ink(obj):
+    """Objekt aus der Tusche-Sammlung nehmen (z. B. Gesichts-Decals)."""
+    col = ink_collection()
+    if obj.name in col.objects:
+        col.objects.unlink(obj)
+    if obj.name not in bpy.context.scene.collection.objects:
+        bpy.context.scene.collection.objects.link(obj)
+
+
+def to_ink(obj):
+    col = ink_collection()
+    for c in list(obj.users_collection):
+        c.objects.unlink(obj)
+    col.objects.link(obj)
+
+
+def ink(thickness=1.4, color='#120c14', crease=136, taper=True):
+    """Freestyle: Umriss-, Kanten- und Faltenlinien für die Sammlung „Ink“ (Anime-Lineart)."""
+    s = bpy.context.scene
+    s.render.use_freestyle = True
+    s.render.line_thickness_mode = 'ABSOLUTE'
+    s.render.line_thickness = 1.0
+    vl = s.view_layers[0]
+    fs = vl.freestyle_settings
+    fs.crease_angle = math.radians(crease)
+    fs.use_culling = True
+    ls = fs.linesets[0] if len(fs.linesets) else fs.linesets.new('Ink')
+    ls.select_by_collection = True
+    ls.collection = ink_collection()
+    ls.select_by_visibility = True
+    ls.visibility = 'VISIBLE'
+    ls.select_by_edge_types = True
+    ls.select_silhouette = True
+    ls.select_border = True
+    ls.select_crease = True
+    ls.select_contour = True
+    ls.select_external_contour = True
+    ls.select_material_boundary = False
+    st = ls.linestyle
+    if st is None:
+        st = bpy.data.linestyles.new('InkStyle')
+        ls.linestyle = st
+    st.color = _lin(color)
+    st.thickness = thickness
+    st.thickness_position = 'CENTER'
+    st.chaining = 'PLAIN'
+    st.use_same_object = True
+    if taper and not any(m.type == 'ALONG_STROKE' for m in st.thickness_modifiers):
+        m = st.thickness_modifiers.new('Taper', 'ALONG_STROKE')
+        m.mapping = 'CURVE'
+        m.value_min = 0.35
+        m.value_max = 1.0
+        cm = m.curve
+        pts = cm.curves[0].points
+        pts[0].location = (0.0, 0.0)
+        pts[1].location = (1.0, 0.0)
+        pts.new(0.15, 1.0)
+        pts.new(0.85, 1.0)
+        cm.update()
+    return ls
 
 
 def setup_render(frames, res=(1280, 720), samples=16, motion_blur=True):
@@ -123,6 +196,16 @@ def toon(name, color, shade=None, highlight=None, steps=(0.38, 0.86)):
     nt.links.new(s2r.outputs['Color'], ramp.inputs['Fac'])
     nt.links.new(ramp.outputs['Color'], em.inputs['Color'])
     nt.links.new(em.outputs['Emission'], out.inputs['Surface'])
+    _mats[key] = m
+    return m
+
+
+def flat(name, color):
+    """Unbeleuchtete Flächenfarbe (für Augen, Wimpern, Tattoos)."""
+    key = ('flat', name)
+    if key in _mats:
+        return _mats[key]
+    m = glow(name, color, 1.0)
     _mats[key] = m
     return m
 

@@ -7,7 +7,10 @@
 //         → [final]  Binding Vow / Ausrüstung wählen
 //         → [seal]   Prison Realm: Gegner schlägt 2 Fähigkeiten vor, Besitzer versiegelt eine
 //         → [ritual] Mahoraga ohne Ten Shadows: beschwören (Kampf) oder nicht (halbe Punkte)
-//         → [gamble] Idle Death Gamble: der Besitzer dreht bis zu 3× (+2 mit Rough Energy) am Automaten
+//         → [gamble] Idle Death Gamble: der Besitzer dreht bis zu 3× (+2 mit Rough Energy) am Automaten (beide sehen zu)
+//         → [feast]  Sukunas Finger: Glücksrad, wie viele Finger (1–3) Sukuna isst (nur mit Shrine + Dismantle & Cleave + Fuga + Finger)
+//         → [resonance] Nobara: Straw Doll + Hammer & Nails + Finger halbieren die Sukuna-Techniken des Gegners
+//         → [verdict] Deadly Sentencing: die Waage wiegt Gut/Böse des Gegners gegen das Gesetzbuch (beide sehen zu)
 //         → [clash]  Domain Clash: haben beide eine Domain, entscheidet ein Timing-Duell (5 Runden)
 //         → result
 
@@ -73,6 +76,9 @@
       gamble: null,     // { player, spinsLeft, total, spins:[...], last, done, outcome }
       ritual: null,     // Mahoraga-Beschwörung: { player, chance, decided, summon, success, done }
       clash: null,      // Domain Clash: { domains, zone, perfect, flashPts, hitMult, hits:[[],[]], points, done, winner }
+      feast: null,      // Finger-Mahl: { player, fingers, done }
+      resonance: null,  // Resonanz: { player, victim, done }
+      verdict: null,    // Waage von Deadly Sentencing: { judge, accused, karma, level, sword, needSeal, options, sealed, done }
       events: [],       // für Meldungen in der Anzeige
       evSeq: 0,
       log: [],
@@ -238,10 +244,22 @@
     if (c.highBidder !== null && c.turn !== c.highBidder && !canOverbid(s, c.turn)) award(s, c.highBidder);
   }
 
-  // Leere Slots der aktuellen Runde zufällig füllen (Fluchkraft wird NICHT verschenkt – nur wer kauft, hat welche)
+  // Leere Slots der aktuellen Runde zufällig füllen (Fluchkraft: wer keine hat, bekommt eine zufällige)
   function fillRandom(s, rnd) {
-    if (s.stage === 'energy') return;
     rnd = rnd || Math.random;
+    if (s.stage === 'energy') {
+      // Wer am Ende keine Fluchkraft hat (z. B. kein Geld mehr), bekommt eine zufällige
+      const pool = shuffle(s.deck.concat(s.graveyard), rnd).filter((id) => s.kinds[id] === 'energy');
+      s.players.forEach((pl) => {
+        if (pl.energy.length < limit(s) && pool.length) {
+          const id = pool.shift();
+          pl.energy.push(id);
+          pl.energyFilled = (pl.energyFilled || []).concat(id);
+          log(s, `${pl.name} bekommt zufällig „${s.names[id]}“.`);
+        }
+      });
+      return;
+    }
     const want = KIND_OF_STAGE[s.stage];
     const pool = shuffle(s.deck, rnd).concat(shuffle(s.graveyard, rnd)).filter((id) => s.kinds[id] === want);
     s.players.forEach((pl, p) => {
@@ -332,7 +350,8 @@
   // Fähigkeiten, die wirklich zählen (nicht geopfert, nicht versiegelt)
   function countingAbilities(s, p) {
     const sealed = s.seal && s.seal.target === p ? s.seal.sealed : null;
-    return liveAbilities(s, p).filter((id) => id !== sealed);
+    const vSealed = s.verdict && s.verdict.accused === p ? s.verdict.sealed : null;
+    return liveAbilities(s, p).filter((id) => id !== sealed && id !== vSealed);
   }
 
   // ───────── Mahoraga-Ritual ─────────
@@ -387,12 +406,102 @@
     const power = baseValue(pack, dom, ids, energy).v + fit * 8;
     const zone = Math.max(0.12, Math.min(0.34, 0.08 + power / 100 * 0.2));
     const hasBF = ids.includes('schwarzer-blitz');
-    return { domain: dom.id, zone, perfect: zone * (hasBF ? 0.32 : 0.22), flashPts: hasBF ? 34 : 26, blackFlash: hasBF, fit };
+    const V = s.verdict;
+    const judged = V && V.level === 3 && !V.sword && V.judge === p;   // Urteil ohne Schwert: stärkerer Black Flash
+    return { domain: dom.id, zone, perfect: zone * (hasBF ? 0.32 : 0.22) * (judged ? 1.2 : 1), flashPts: (hasBF ? 34 : 26) + (judged ? 8 : 0),
+      blackFlash: hasBF, fit, judged };
   }
 
-  function afterGamble(s) {
+  // ───────── Deadly Sentencing: die Waage ─────────
+  // Jede Karte hat einen Gut/Böse-Wert (karma: + böse, − gut). Die Summe des Gegners liegt auf der einen Waagschale,
+  // das Gesetzbuch auf der anderen. Stufe −3 … +3 (+ = Gegner ist zu böse, die Waage sinkt zu ihm).
+  const VERDICT = { id: 'todesurteil', sword: 'henkersschwert', steps: [3, 8, 13] };
+
+  function karmaOf(s, p) {
+    const pack = getPack(s);
+    const all = [...pack.abilities, ...(pack.equipment || []), ...(pack.energy || [])];
+    const k = (id) => { const x = all.find((y) => y.id === id); return x && x.karma ? x.karma : 0; };
+    const pl = s.players[p];
+    const ids = countingAbilities(s, p).concat((pl.choice && pl.choice.equipUse) || [], pl.energy[0] ? [pl.energy[0]] : []);
+    return ids.reduce((t, id) => t + k(id), 0);
+  }
+
+  function verdictLevel(karma) {
+    const [a, b, c] = VERDICT.steps;
+    if (karma >= c) return 3;
+    if (karma >= b) return 2;
+    if (karma >= a) return 1;
+    if (karma <= -(c - 4)) return -3;
+    if (karma <= -(b - 2)) return -2;
+    if (karma <= -a) return -1;
+    return 0;
+  }
+
+  // Was kann der Richter bei „ganz unten ohne Schwert“ versiegeln? Alles außer Domains.
+  function verdictOptions(s, accused) {
+    const pl = s.players[accused];
+    const ab = countingAbilities(s, accused).filter((id) => !isDomain(s, id));
+    return ab.concat((pl.choice && pl.choice.equipUse) || [], pl.energy[0] ? [pl.energy[0]] : []);
+  }
+
+  function startVerdict(s) {
+    const judge = [0, 1].find((p) => countingAbilities(s, p).includes(VERDICT.id));
+    if (judge === undefined) return toClash(s);
+    const accused = other(judge);
+    const karma = karmaOf(s, accused);
+    const level = verdictLevel(karma);
+    const sword = level === 3 && ((s.players[judge].choice || {}).equipUse || []).includes(VERDICT.sword);
+    const options = level === 3 && !sword ? verdictOptions(s, accused) : [];
+    s.verdict = { judge, accused, karma, level, sword, needSeal: options.length > 0, options, sealed: null, done: false };
+    s.phase = 'verdict';
+    log(s, `Deadly Sentencing: Die Waage wiegt ${s.players[accused].name}!`);
+    event(s, { kind: 'verdictstart', player: judge });
+  }
+
+  function afterGamble(s) { startFeast(s); }
+
+  // ───────── Sukunas Finger ─────────
+  function startFeast(s) {
+    const F = getPack(s).feast;
+    const owner = F ? [0, 1].find((p) => F.needs.every((id) => countingAbilities(s, p).includes(id))
+      && ((s.players[p].choice || {}).equipUse || []).includes(F.finger)) : undefined;
+    if (owner === undefined) return startResonance(s);
+    s.feast = { player: owner, fingers: null, done: false };
+    s.phase = 'feast';
+    log(s, `${s.players[owner].name} hat Sukunas Finger – das Glücksrad entscheidet, wie viele er isst!`);
+    event(s, { kind: 'feaststart', player: owner });
+  }
+
+  function spinFeast(s) {
+    const w = getPack(s).feast.wheel;
+    let r = Math.random();
+    for (let i = 0; i < w.length; i++) { r -= w[i]; if (r < 0) return i + 1; }
+    return w.length;
+  }
+
+  // ───────── Nobaras Resonanz ─────────
+  function startResonance(s) {
+    const R = getPack(s).resonance;
+    const sukuna = (p) => countingAbilities(s, p).some((id) => s.users[id] === R.vsUser);
+    const owner = R ? [0, 1].find((p) => R.needs.every((id) => countingAbilities(s, p).includes(id))
+      && R.equip.every((id) => ((s.players[p].choice || {}).equipUse || []).includes(id)) && sukuna(other(p))) : undefined;
+    if (owner === undefined) return startVerdict(s);
+    s.resonance = { player: owner, victim: other(owner), done: false };
+    s.phase = 'resonance';
+    log(s, `Resonanz! ${s.players[owner].name} schlägt einen Nagel durch Sukunas Finger.`);
+    event(s, { kind: 'resonance', player: owner });
+  }
+
+  function toClash(s) {
+    const V = s.verdict;
     const setups = [clashSetup(s, 0), clashSetup(s, 1)];
     if (!setups[0] || !setups[1]) return finishResult(s);
+    if (V && V.level === 3 && V.sword) {
+      s.clash = { rounds: 0, domains: setups.map((x) => x.domain), guarded: [false, false], hits: [[], []], points: [0, 0], done: true,
+        winner: V.judge, execution: true };
+      log(s, `Todesurteil! ${s.players[V.judge].name} gewinnt den Domain Clash ohne Kampf.`);
+      return finishResult(s);
+    }
     const counterIds = ['einfacher-bereich', 'weidenkorb'];
     // Hat der Gegner Simple Domain / Hollow Wicker Basket, zählen meine Treffer weniger
     const guarded = [0, 1].map((p) => countingAbilities(s, p).some((id) => counterIds.includes(id)));
@@ -524,6 +633,51 @@
       R.success = Math.random() < R.chance;
       log(s, R.success ? `${pl.name} bezwingt Mahoraga!` : `Mahoraga schlägt ${pl.name} weg!`);
       event(s, { kind: R.success ? 'ritualwin' : 'rituallose', player: p });
+      return null;
+    }
+
+    if (a.type === 'feastSpin' || a.type === 'feastDone') {
+      const Fe = s.feast;
+      if (s.phase !== 'feast' || !Fe) return 'Gerade gibt es kein Finger-Mahl.';
+      if (a.type === 'feastSpin') {
+        if (p !== Fe.player) return 'Nur der Besitzer des Fingers dreht das Rad.';
+        if (Fe.fingers) return 'Das Rad hat schon entschieden.';
+        Fe.fingers = spinFeast(s);
+        log(s, `Das Glücksrad zeigt ${Fe.fingers} Finger!`);
+        event(s, { kind: 'feastspun', player: p, n: Fe.fingers });
+        return null;
+      }
+      if (!Fe.fingers) return 'Erst muss das Rad gedreht werden.';
+      if (Fe.done) return null;
+      Fe.done = true;
+      startResonance(s);
+      return null;
+    }
+
+    if (a.type === 'resonanceDone') {
+      if (s.phase !== 'resonance' || !s.resonance) return 'Gerade gibt es keine Resonanz.';
+      if (s.resonance.done) return null;
+      s.resonance.done = true;
+      startVerdict(s);
+      return null;
+    }
+
+    if (a.type === 'verdictSeal' || a.type === 'verdictDone') {
+      const V = s.verdict;
+      if (s.phase !== 'verdict' || !V) return 'Gerade gibt es kein Urteil.';
+      if (a.type === 'verdictSeal') {
+        if (p !== V.judge) return 'Nur der Richter darf versiegeln.';
+        if (!V.needSeal || V.sealed) return 'Es gibt nichts (mehr) zu versiegeln.';
+        if (!V.options.includes(a.id)) return 'Das kann nicht versiegelt werden.';
+        V.sealed = a.id;
+        log(s, `Urteil: „${s.names[a.id]}“ von ${s.players[V.accused].name} wird versiegelt!`);
+        event(s, { kind: 'verdictsealed', player: p, id: a.id });
+        return null;
+      }
+      if (V.needSeal && !V.sealed) return 'Erst muss der Richter etwas versiegeln.';
+      if (V.done) return null;
+      V.done = true;
+      toClash(s);
       return null;
     }
 
@@ -670,11 +824,20 @@
     const weakened = [];
     const val = {};
 
+    // Reverse Cursed Technique: verwandte Fähigkeiten (z. B. Reversal Red) werden stärker, ihre Schwächungen fallen weg
+    const rct = pack.rct && has(effIds, pack.rct.id) ? pack.rct : null;
+    const rctLinked = (a) => !!rct && rct.linked.includes(a.id);
+    const nerf = {};   // gesammelte Schwächungs-Faktoren je Fähigkeit (für den RCT-Ausgleich)
+    const addNerf = (id, f) => { nerf[id] = (nerf[id] || 1) * f; };
+
     // 1) Grundwerte: Abhängigkeiten + Ausgleich durch Fluchkraft-Kontrolle
     for (const a of list) {
       const b = baseValue(pack, a, effIds, energy);
       val[a.id] = b.v;
-      if (b.weak) {
+      if (b.weak && rctLinked(a)) {
+        val[a.id] = a.value;
+        lines.push({ kind: 'combo', label: `Reverse Cursed Technique: ${a.name} ohne Schwäche`, points: 0 });
+      } else if (b.weak) {
         weakened.push(a.id);
         if (b.healed > 0) lines.push({ kind: 'energy', label: `${energy.name} gleicht die Schwäche von ${a.name} aus`, points: 0 });
       }
@@ -693,7 +856,7 @@
         lines.push({ kind: 'nojackpot', label: 'Mahoraga nicht beschworen – zählt nur halb', points: 0 });
       } else if (me.ritual === 'lose') {
         val.mahoraga = 0;
-        list.forEach((a) => { if (a.id !== 'mahoraga') val[a.id] = Math.round(val[a.id] * (1 - 0.15)); });
+        list.forEach((a) => { if (a.id !== 'mahoraga') { val[a.id] = Math.round(val[a.id] * (1 - 0.15)); addNerf(a.id, 1 - 0.15); } });
         lines.push({ kind: 'debuff', label: 'Mahoraga hat dich weggeschlagen – alle Fähigkeiten geschwächt', points: 0 });
       }
     }
@@ -720,11 +883,14 @@
     // 4) Effekte des Gegners gegen mich (Beschlagnahmen, Stoppen) – Heilung mildert sie
     const heal = effects.find((e) => e.type === 'heal' && has(effIds, e.id));
     for (const e of effects.filter((x) => x.type === 'debuff' && has(foeIds, x.id))) {
+      // Deadly Sentencing beschlagnahmt nur bei einem Schuldspruch (Waage sinkt zum Angeklagten)
+      if (e.id === 'todesurteil' && me.verdict && me.verdict.role === 'accused' && me.verdict.level < 1) continue;
       const targets = list.filter((a) => a.type === e.vsType);
       if (!targets.length) continue;
       const t = targets.reduce((best, a) => (val[a.id] > val[best.id] ? a : best));
       const factor = heal ? 1 - (1 - e.factor) * heal.factor : e.factor;
       val[t.id] = Math.round(val[t.id] * factor);
+      addNerf(t.id, factor);
       lines.push({ kind: 'debuff', label: `${e.label}: ${t.name}${heal ? ' (durch Heilung gemildert)' : ''}`, points: 0 });
     }
 
@@ -745,12 +911,77 @@
     }
     if (gm && foe.gamble === 'jackpot' && energy) lines.push({ kind: 'debuff', label: 'Gegnerischer Jackpot schwächt deine Fluchkraft', points: 0 });
 
-    // 4c) Domain Clash
+    // 4c) Reverse Cursed Technique: Schwächungen verwandter Fähigkeiten ausgleichen + Buff
+    if (rct) {
+      for (const a of list.filter(rctLinked)) {
+        const undo = nerf[a.id] ? 1 / nerf[a.id] : 1;
+        val[a.id] = Math.round(val[a.id] * undo * (1 + rct.boost));
+        lines.push({ kind: 'combo', label: `Reverse Cursed Technique verstärkt ${a.name}${nerf[a.id] ? ' und hebt alle Schwächungen auf' : ''}`, points: 0 });
+      }
+    }
+
+    // 4c²) Sukunas Finger und Nobaras Resonanz
+    const FE = pack.feast;
+    if (FE && me.fingers) {
+      list.filter((a) => a.user === FE.user).forEach((a) => { val[a.id] = Math.round(val[a.id] * (1 + FE.perFinger * me.fingers)); });
+      lines.push({ kind: 'combo', label: `👆 Sukuna isst ${me.fingers} Finger – seine Techniken werden viel stärker`, points: FE.flat * me.fingers });
+    }
+    const RS = pack.resonance;
+    if (RS && me.resonated) {
+      list.filter((a) => a.user === RS.vsUser).forEach((a) => { val[a.id] = Math.round(val[a.id] * RS.factor); });
+      lines.push({ kind: 'debuff', label: '🔨 Resonanz: Nobaras Nagel trifft den Finger – deine Sukuna-Techniken zählen nur halb', points: 0 });
+    }
+    if (RS && me.resonator) lines.push({ kind: 'combo', label: '🔨 Resonanz: du hast Sukuna durch seinen Finger getroffen', points: 0 });
+
+    // 4d) Waage von Deadly Sentencing
+    const V = me.verdict;
+    const vb = pack.verdict || {};
+    if (V && V.role === 'judge') {
+      if (V.level === 1 && val.todesurteil !== undefined) {
+        val.todesurteil = Math.round(val.todesurteil * (1 + vb.small));
+        lines.push({ kind: 'combo', label: '⚖ Schuldig: Deadly Sentencing wird stärker', points: 0 });
+      } else if (V.level === 2) {
+        list.forEach((a) => { val[a.id] = Math.round(val[a.id] * (1 + vb.medium)); });
+        lines.push({ kind: 'combo', label: '⚖ Schwer schuldig: alle deine Fähigkeiten werden stärker', points: 0 });
+      } else if (V.level === 3 && !V.sword) {
+        list.forEach((a) => { val[a.id] = Math.round(val[a.id] * (1 + vb.strong)); });
+        lines.push({ kind: 'combo', label: '⚖ Todesurteil (ohne Henkersschwert): alles stark verstärkt, Black Flash im Clash wuchtiger', points: 0 });
+      } else if (V.level === 3 && V.sword) {
+        lines.push({ kind: 'combo', label: '⚖ Todesurteil mit dem Henkersschwert vollstreckt', points: 0 });
+      } else if (V.level < 0) {
+        lines.push({ kind: 'nojackpot', label: '⚖ Die Waage spricht für den Gegner', points: 0 });
+      } else {
+        lines.push({ kind: 'nojackpot', label: '⚖ Freispruch – die Waage bleibt im Gleichgewicht', points: 0 });
+      }
+    } else if (V && V.role === 'accused') {
+      if (V.level < 0) {
+        const f = [0, vb.good1, vb.good2, vb.good3][-V.level];
+        list.forEach((a) => { val[a.id] = Math.round(val[a.id] * (1 + f)); });
+        lines.push({ kind: 'combo', label: '⚖ Die Waage spricht für dich: alle Fähigkeiten stärker', points: 0 });
+        if (V.level === -3) {
+          const doms = list.filter((a) => a.type === 'domain');
+          if (doms.length) {
+            const best = doms.reduce((b, a) => (val[a.id] > val[b.id] ? a : b));
+            const need = 2 * (V.judgeDomain || 0);
+            if (val[best.id] < need) val[best.id] = need;
+            lines.push({ kind: 'duel', label: `⚖ Reines Gewissen: ${best.name} zählt doppelt so viel wie die Domain des Richters`, points: 0 });
+          } else {
+            list.forEach((a) => { val[a.id] = Math.round(val[a.id] * (1 + vb.noDomain)); });
+            lines.push({ kind: 'combo', label: '⚖ Reines Gewissen: noch einmal stärker (keine eigene Domain)', points: 0 });
+          }
+        }
+      } else if (V.level >= 1) {
+        lines.push({ kind: 'debuff', label: V.level === 3 ? '⚖ Todesurteil!' : '⚖ Schuldig gesprochen', points: 0 });
+      }
+      if (V.sealedName) lines.push({ kind: 'debuff', label: `⚖ Versiegelt durch das Urteil: ${V.sealedName}`, points: 0 });
+    }
+
+    // 4e) Domain Clash
     if (me.clash === 'win') {
       const h = me.clashHalved ? 0.5 : 1;
       list.forEach((a) => { val[a.id] = Math.round(val[a.id] * (1 + 0.08 * h)); });
       if (val[me.clashDomain] !== undefined) val[me.clashDomain] = Math.round(val[me.clashDomain] * (1 + 0.2 * h));
-      lines.push({ kind: 'duel', label: `Domain Clash gewonnen: ${byId[me.clashDomain].name}${me.clashHalved ? ' (Simple Domain des Gegners bremst)' : ''}`, points: 0 });
+      lines.push({ kind: 'duel', label: `Domain Clash gewonnen${me.clashExecution ? ' (ohne Kampf – Todesurteil)' : ''}: ${byId[me.clashDomain].name}${me.clashHalved ? ' (Simple Domain des Gegners bremst)' : ''}`, points: 0 });
     } else if (me.clash === 'lose') {
       lines.push({ kind: 'nojackpot', label: `Domain Clash verloren: ${byId[me.clashDomain].name}`, points: 0 });
     }
@@ -855,16 +1086,32 @@
       lines.push({ kind: 'debuff', label: 'Automat: alle Spins verloren – alles etwas schwächer', points: -minus });
       bonus -= minus;
     }
+    if (V && V.role === 'accused' && V.level === 3 && V.sword) {
+      const minus = Math.round((base + bonus) / 2);
+      lines.push({ kind: 'debuff', label: '⚖ Henkersschwert: deine Gesamtpunkte werden halbiert', points: -minus });
+      bonus -= minus;
+    }
     return { base, lines, bonus, weakened, total: base + bonus };
   }
 
   function sideOf(s, p) {
     const pl = s.players[p];
     const ch = pl.choice || {};
+    const V = s.verdict;
+    const vSealed = V && V.accused === p ? V.sealed : null;
+    const pack = getPack(s);
+    const judgeDom = pack && V ? (pack.abilities.find((a) => a.id === VERDICT.id) || {}).value || 0 : 0;
     return {
       abilities: pl.slots, sacrifice: ch.sacrifice || null, target: ch.target || null,
-      sealed: s.seal && s.seal.target === p && s.seal.sealed ? [s.seal.sealed] : [],
-      equip: ch.equipUse || [], energy: pl.energy[0] || null, energyMode: !!s.energyMode,
+      sealed: (s.seal && s.seal.target === p && s.seal.sealed ? [s.seal.sealed] : []).concat(vSealed && s.kinds[vSealed] === 'ability' ? [vSealed] : []),
+      equip: (ch.equipUse || []).filter((id) => id !== vSealed), energy: pl.energy[0] && pl.energy[0] !== vSealed ? pl.energy[0] : null,
+      energyMode: !!s.energyMode,
+      verdict: V ? { role: V.judge === p ? 'judge' : 'accused', level: V.level, sword: V.sword, judgeDomain: judgeDom,
+        sealedName: vSealed ? s.names[vSealed] : null } : null,
+      clashExecution: !!(s.clash && s.clash.execution),
+      fingers: s.feast && s.feast.player === p ? s.feast.fingers : 0,
+      resonated: !!(s.resonance && s.resonance.victim === p),
+      resonator: !!(s.resonance && s.resonance.player === p),
       gamble: s.gamble && s.gamble.player === p ? s.gamble.outcome : null,
       ritual: s.ritual && s.ritual.player === p ? (!s.ritual.summon ? 'skip' : s.ritual.success ? 'win' : 'lose') : null,
       clash: s.clash && s.clash.done ? (s.clash.winner === p ? 'win' : 'lose') : null,

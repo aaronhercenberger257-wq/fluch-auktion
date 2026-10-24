@@ -418,6 +418,31 @@ details.desc p.needs.fits { color: #5eead4; }
 .gamble-res { font-weight: 800; font-size: 17px; }
 .gamble-res.jackpot { color: var(--gold); font-size: 24px; }
 .gamble-res.miss { color: #fda4af; }
+.spin-clip { width: 100%; border-radius: 14px; margin-bottom: 10px; background: #000; aspect-ratio: 16 / 9; }
+
+/* ───── Sukunas Finger: Glücksrad ───── */
+.fwheel-wrap { position: relative; width: 240px; height: 240px; margin: 14px auto 16px; }
+.fwheel-pointer { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); z-index: 2; color: var(--gold); font-size: 26px;
+  text-shadow: 0 2px 6px #000; }
+.fwheel { position: absolute; inset: 0; border-radius: 50%; border: 4px solid var(--gold); box-shadow: 0 0 30px rgba(239, 68, 68, .45);
+  background: conic-gradient(#7f1d1d 0 180deg, #b91c1c 180deg 299deg, #f59e0b 299deg 360deg);
+  transition: transform 4s cubic-bezier(.12, .7, .15, 1); }
+.fw-lbl { position: absolute; left: 50%; top: 50%; font-weight: 800; font-size: 20px; color: #fff; text-shadow: 0 2px 4px #000;
+  transform: translate(-50%, -50%) rotate(var(--a)) translateY(-78px) rotate(calc(-1 * var(--a))); }
+
+/* ───── Deadly Sentencing: Waage ───── */
+.karma { margin: 0 0 10px; font-size: 13px; color: var(--muted, #a1a1aa); }
+.karma.evil2 b { color: #f87171; }
+.karma.evil1 b { color: #fca5a5; }
+.karma.good1 b { color: #86efac; }
+.karma.good2 b { color: #4ade80; }
+.karma.neutral b { color: #fde68a; }
+.verdict-box { border-color: rgba(234, 179, 8, .55); box-shadow: 0 0 60px rgba(234, 179, 8, .18); }
+.verdict-res { font-size: 15px; padding: 10px 14px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
+.verdict-res b { font-size: 24px; letter-spacing: .04em; }
+.verdict-res.lvl3 b, .verdict-res.lvl2 b, .verdict-res.lvl1 b { color: #f87171; }
+.verdict-res.lvl0 b { color: var(--gold); }
+.verdict-res.lvl-1 b, .verdict-res.lvl-2 b, .verdict-res.lvl-3 b { color: #4ade80; }
 
 /* ───── Domain Clash ───── */
 .clash { max-width: 760px; margin: 0 auto; }
